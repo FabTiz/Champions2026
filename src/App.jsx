@@ -27,3 +27,6 @@ function App() {
 }
 
 export default App;
+import Calendario from "./pages/Calendario";
+
+<Route path="/calendario" element={<Calendario />} />
