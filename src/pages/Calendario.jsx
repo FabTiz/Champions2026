@@ -1,5 +1,22 @@
 import { useEffect, useState } from "react";
+import { Link } from "react-router-dom";
 import { supabase } from "../supabaseClient";
+
+const backBtn = {
+  display: "inline-block",
+  padding: "10px 15px",
+  background: "#ddd",
+  borderRadius: "8px",
+  textDecoration: "none",
+  fontSize: "18px",
+  color: "#000",
+  transition: "0.2s",
+  marginTop: "20px"
+};
+
+const backBtnHover = {
+  background: "#ccc",
+};
 
 export default function Calendario() {
   const [matches, setMatches] = useState([]);
@@ -10,13 +27,11 @@ export default function Calendario() {
   }, []);
 
   async function loadData() {
-    // Carica partite
     const { data: matchesData } = await supabase
       .from("matches")
       .select("*")
       .order("giornata", { ascending: true });
 
-    // Carica squadre
     const { data: squadsData } = await supabase
       .from("squads")
       .select("*");
@@ -25,7 +40,6 @@ export default function Calendario() {
     setSquads(squadsData || []);
   }
 
-  // Mappa ID → Nome squadra
   const squadName = (id) => {
     const s = squads.find((sq) => sq.id === id);
     return s ? s.name : `Squadra ${id}`;
@@ -57,6 +71,16 @@ export default function Calendario() {
           </div>
         );
       })}
+
+      {/* TORNA ALLA HOME */}
+      <Link
+        to="/"
+        style={backBtn}
+        onMouseEnter={(e) => Object.assign(e.currentTarget.style, backBtnHover)}
+        onMouseLeave={(e) => Object.assign(e.currentTarget.style, backBtn)}
+      >
+        ⬅ Torna alla Home
+      </Link>
     </div>
   );
 }
