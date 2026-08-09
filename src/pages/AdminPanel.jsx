@@ -1,5 +1,5 @@
-import BackHome from "./BackHome";
 import { useState, useEffect } from "react";
+import { Link } from "react-router-dom";
 import { supabase } from "../supabaseClient";
 
 export default function AdminPanel() {
@@ -12,6 +12,13 @@ export default function AdminPanel() {
   return (
     <div style={{ padding: "30px" }}>
       <h1>Admin Panel – Champions League Comp</h1>
+
+      {/* LINK HOME */}
+      <div style={{ marginBottom: "20px" }}>
+        <Link to="/" style={{ fontSize: "18px", textDecoration: "none" }}>
+          ⬅ Torna alla Home
+        </Link>
+      </div>
 
       <Section title="Squadre" id="squadre" openSection={openSection} toggle={toggle}>
         <SquadreAdmin />
@@ -43,6 +50,8 @@ export default function AdminPanel() {
     </div>
   );
 }
+
+/* -------------------- COMPONENTE SEZIONE -------------------- */
 
 function Section({ title, id, openSection, toggle, children }) {
   return (
