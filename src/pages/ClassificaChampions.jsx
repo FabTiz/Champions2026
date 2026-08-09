@@ -1,5 +1,22 @@
 import { useEffect, useState } from "react";
+import { Link } from "react-router-dom";
 import { supabase } from "../supabaseClient";
+
+const backBtn = {
+  display: "inline-block",
+  padding: "10px 15px",
+  background: "#ddd",
+  borderRadius: "8px",
+  textDecoration: "none",
+  fontSize: "18px",
+  color: "#000",
+  transition: "0.2s",
+  marginTop: "20px",
+};
+
+const backBtnHover = {
+  background: "#ccc",
+};
 
 export default function ClassificaChampions() {
   const [classifica, setClassifica] = useState([]);
@@ -52,6 +69,16 @@ export default function ClassificaChampions() {
           </tbody>
         </table>
       )}
+
+      {/* TORNA ALLA HOME */}
+      <Link
+        to="/"
+        style={backBtn}
+        onMouseEnter={(e) => Object.assign(e.currentTarget.style, backBtnHover)}
+        onMouseLeave={(e) => Object.assign(e.currentTarget.style, backBtn)}
+      >
+        ⬅ Torna alla Home
+      </Link>
     </div>
   );
 }

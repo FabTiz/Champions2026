@@ -1,3 +1,21 @@
+import { Link } from "react-router-dom";
+
+const backBtn = {
+  display: "inline-block",
+  padding: "10px 15px",
+  background: "#ddd",
+  borderRadius: "8px",
+  textDecoration: "none",
+  fontSize: "18px",
+  color: "#000",
+  transition: "0.2s",
+  marginTop: "30px",
+};
+
+const backBtnHover = {
+  background: "#ccc",
+};
+
 export default function Missioni() {
   return (
     <div style={{ padding: "30px", maxWidth: "900px", margin: "0 auto" }}>
@@ -88,6 +106,16 @@ export default function Missioni() {
           Classifica storica dal 1° all’8° posto, valida per teste di serie, sorteggi e future meccaniche.
         </p>
       </section>
+
+      {/* TORNA ALLA HOME */}
+      <Link
+        to="/"
+        style={backBtn}
+        onMouseEnter={(e) => Object.assign(e.currentTarget.style, backBtnHover)}
+        onMouseLeave={(e) => Object.assign(e.currentTarget.style, backBtn)}
+      >
+        ⬅ Torna alla Home
+      </Link>
     </div>
   );
 }
