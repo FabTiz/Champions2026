@@ -25,7 +25,6 @@ export default function Turno() {
   const [missioniScelte, setMissioniScelte] = useState({});
   const [risultatiTurno, setRisultatiTurno] = useState([]);
 
-  // Turni
   const TURNS = [
     { id: 1, giornate: [1, 2, 3] },
     { id: 2, giornate: [4, 5, 6] },
@@ -45,7 +44,6 @@ export default function Turno() {
     "Top Performer",
   ];
 
-  // Carica squadre
   useEffect(() => {
     async function loadSquads() {
       const { data } = await supabase.from("squads").select("*");
@@ -54,14 +52,12 @@ export default function Turno() {
     loadSquads();
   }, []);
 
-  // Quando selezioni la giornata → calcola il turno
   useEffect(() => {
     if (!giornata) return;
     const t = TURNS.find((t) => t.giornate.includes(Number(giornata)));
     setTurno(t);
   }, [giornata]);
 
-  // Carica risultati delle 3 giornate del turno
   useEffect(() => {
     async function loadRisultati() {
       if (!turno) return;
@@ -75,7 +71,6 @@ export default function Turno() {
     loadRisultati();
   }, [turno]);
 
-  // Salva missione personale scelta
   async function salvaMissione(squadId, missione) {
     await supabase.from("missioni_personali_scelte").upsert({
       turno_id: turno.id,
@@ -84,10 +79,8 @@ export default function Turno() {
     });
   }
 
-  // Calcolo missioni del turno
   function calcolaMissioniPerSquadra(squadId) {
     const risultati = risultatiTurno.filter((r) => r.squad_id === squadId);
-
     if (risultati.length !== 3) return null;
 
     const scores = risultati.map((r) => r.fantapunti);
@@ -133,7 +126,6 @@ export default function Turno() {
     return { comune, personale, leggendaria };
   }
 
-  // Salva missioni completate
   async function salvaMissioniCompletate() {
     for (const squad of squads) {
       const result = calcolaMissioniPerSquadra(squad.id);
@@ -154,7 +146,7 @@ export default function Turno() {
     <div style={{ padding: "30px" }}>
       <h1>Gestione Turno Champions</h1>
 
-      {/* TORNA ALLA HOME - IN ALTO */}
+      {/* TORNA ALLA HOME - SOLO IN ALTO */}
       <Link
         to="/"
         style={backBtn}
@@ -164,7 +156,6 @@ export default function Turno() {
         ⬅ Torna alla Home
       </Link>
 
-      {/* Selezione giornata */}
       <label>Seleziona giornata:</label>
       <select
         value={giornata}
@@ -178,17 +169,6 @@ export default function Turno() {
         ))}
       </select>
 
-      {/* TORNA ALLA HOME - SUBITO DOPO IL MENU */}
-      <Link
-        to="/"
-        style={backBtn}
-        onMouseEnter={(e) => Object.assign(e.currentTarget.style, backBtnHover)}
-        onMouseLeave={(e) => Object.assign(e.currentTarget.style, backBtn)}
-      >
-        ⬅ Torna alla Home
-      </Link>
-
-      {/* Mostra turno */}
       {turno && (
         <div style={{ marginTop: "20px" }}>
           <h2>Turno {turno.id}</h2>
@@ -196,7 +176,6 @@ export default function Turno() {
         </div>
       )}
 
-      {/* Scelta missioni personali */}
       {turno && (
         <div style={{ marginTop: "30px" }}>
           <h3>Missioni Personali</h3>
@@ -229,7 +208,6 @@ export default function Turno() {
         </div>
       )}
 
-      {/* Calcolo missioni */}
       {turno && (
         <button
           onClick={salvaMissioniCompletate}
