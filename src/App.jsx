@@ -4,10 +4,12 @@ import Home from "./pages/Home";
 import Dashboard from "./pages/Dashboard";
 import Squadre from "./pages/Squadre";
 import Calendario from "./pages/Calendario";
-
-// nuove pagine
 import Missioni from "./pages/Missioni";
 import DashboardSquadre from "./pages/DashboardSquadre";
+
+// nuove pagine Champions
+import Turno from "./pages/Turno";
+import ClassificaChampions from "./pages/ClassificaChampions";
 
 function App() {
   return (
@@ -18,10 +20,12 @@ function App() {
         <Route path="/dashboard" element={<Dashboard />} />
         <Route path="/squadre" element={<Squadre />} />
         <Route path="/calendario" element={<Calendario />} />
-
-        {/* Nuove pagine */}
         <Route path="/missioni" element={<Missioni />} />
         <Route path="/dashboard-squadre" element={<DashboardSquadre />} />
+
+        {/* Champions League Comp */}
+        <Route path="/turno" element={<Turno />} />
+        <Route path="/classifica-champions" element={<ClassificaChampions />} />
       </Routes>
     </BrowserRouter>
   );

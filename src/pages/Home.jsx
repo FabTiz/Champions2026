@@ -68,7 +68,7 @@ export default function Home() {
           </div>
         </Link>
 
-        {/* ⭐ MISSIONI — NUOVA CARD ⭐ */}
+        {/* MISSIONI */}
         <Link to="/missioni" style={{ textDecoration: "none", color: "inherit" }}>
           <div
             style={cardStyle}
@@ -76,7 +76,31 @@ export default function Home() {
             onMouseLeave={(e) => Object.assign(e.currentTarget.style, cardStyle)}
           >
             <h2>Missioni</h2>
-            <p>Obiettivi, progressi e attività</p>
+            <p>Regole, bonus e obiettivi</p>
+          </div>
+        </Link>
+
+        {/* TURNO CHAMPIONS */}
+        <Link to="/turno" style={{ textDecoration: "none", color: "inherit" }}>
+          <div
+            style={cardStyle}
+            onMouseEnter={(e) => Object.assign(e.currentTarget.style, cardHover)}
+            onMouseLeave={(e) => Object.assign(e.currentTarget.style, cardStyle)}
+          >
+            <h2>Turno Champions</h2>
+            <p>Scelta missioni e calcolo bonus</p>
+          </div>
+        </Link>
+
+        {/* CLASSIFICA CHAMPIONS */}
+        <Link to="/classifica-champions" style={{ textDecoration: "none", color: "inherit" }}>
+          <div
+            style={cardStyle}
+            onMouseEnter={(e) => Object.assign(e.currentTarget.style, cardHover)}
+            onMouseLeave={(e) => Object.assign(e.currentTarget.style, cardStyle)}
+          >
+            <h2>Classifica Champions</h2>
+            <p>Punti, fantapunti, differenze</p>
           </div>
         </Link>
       </div>
