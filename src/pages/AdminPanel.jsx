@@ -36,22 +36,12 @@ export default function AdminPanel() {
         <MissioniCompletateAdmin />
       </Section>
 
-      <Section title="League Phase (league_turns)" id="league_turns" openSection={openSection} toggle={toggle}>
-        <LeagueTurnsAdmin />
-      </Section>
-
-      <Section title="Playoff" id="playoffs" openSection={openSection} toggle={toggle}>
-        <PlayoffAdmin />
-      </Section>
-
       <Section title="Uomo Champions" id="uomo_champions" openSection={openSection} toggle={toggle}>
         <UomoChampionsAdmin />
       </Section>
     </div>
   );
 }
-
-/* -------------------- COMPONENTE SEZIONE -------------------- */
 
 function Section({ title, id, openSection, toggle, children }) {
   return (
@@ -77,7 +67,7 @@ function Section({ title, id, openSection, toggle, children }) {
   );
 }
 
-/* -------------------- SEZIONE SQUADRE -------------------- */
+/* -------------------- SQUADRE -------------------- */
 
 function SquadreAdmin() {
   const [name, setName] = useState("");
@@ -114,7 +104,7 @@ function SquadreAdmin() {
   );
 }
 
-/* -------------------- SEZIONE TURNI -------------------- */
+/* -------------------- TURNI -------------------- */
 
 function TurniAdmin() {
   const [turni, setTurni] = useState([]);
@@ -142,7 +132,7 @@ function TurniAdmin() {
   );
 }
 
-/* -------------------- SEZIONE GIORNATE -------------------- */
+/* -------------------- GIORNATE -------------------- */
 
 function GiornateAdmin() {
   const [giornate, setGiornate] = useState([]);
@@ -170,7 +160,7 @@ function GiornateAdmin() {
   );
 }
 
-/* -------------------- SEZIONE RISULTATI -------------------- */
+/* -------------------- RISULTATI -------------------- */
 
 function RisultatiAdmin() {
   const [results, setResults] = useState([]);
@@ -198,7 +188,7 @@ function RisultatiAdmin() {
   );
 }
 
-/* -------------------- SEZIONE MISSIONI PERSONALI -------------------- */
+/* -------------------- MISSIONI PERSONALI -------------------- */
 
 function MissioniPersonaliAdmin() {
   const [missioni, setMissioni] = useState([]);
@@ -226,7 +216,7 @@ function MissioniPersonaliAdmin() {
   );
 }
 
-/* -------------------- SEZIONE MISSIONI COMPLETATE -------------------- */
+/* -------------------- MISSIONI COMPLETATE -------------------- */
 
 function MissioniCompletateAdmin() {
   const [missioni, setMissioni] = useState([]);
@@ -254,63 +244,7 @@ function MissioniCompletateAdmin() {
   );
 }
 
-/* -------------------- SEZIONE LEAGUE TURNS -------------------- */
-
-function LeagueTurnsAdmin() {
-  const [turns, setTurns] = useState([]);
-
-  useEffect(() => {
-    load();
-  }, []);
-
-  async function load() {
-    const { data } = await supabase.from("league_turns").select("*");
-    setTurns(data || []);
-  }
-
-  return (
-    <>
-      <h3>League Phase – Turni</h3>
-      <ul>
-        {turns.map((t) => (
-          <li key={t.id}>
-            Turno {t.turn_number} – {t.team_home_id} vs {t.team_away_id} – Totali: {t.total_home} / {t.total_away}
-          </li>
-        ))}
-      </ul>
-    </>
-  );
-}
-
-/* -------------------- SEZIONE PLAYOFF -------------------- */
-
-function PlayoffAdmin() {
-  const [playoffs, setPlayoffs] = useState([]);
-
-  useEffect(() => {
-    load();
-  }, []);
-
-  async function load() {
-    const { data } = await supabase.from("playoffs").select("*");
-    setPlayoffs(data || []);
-  }
-
-  return (
-    <>
-      <h3>Playoff</h3>
-      <ul>
-        {playoffs.map((p) => (
-          <li key={p.id}>
-            {p.phase} – {p.team_home_id} vs {p.team_away_id} – Totali: {p.total_home} / {p.total_away}
-          </li>
-        ))}
-      </ul>
-    </>
-  );
-}
-
-/* -------------------- SEZIONE UOMO CHAMPIONS -------------------- */
+/* -------------------- UOMO CHAMPIONS -------------------- */
 
 function UomoChampionsAdmin() {
   const [data, setData] = useState([]);
