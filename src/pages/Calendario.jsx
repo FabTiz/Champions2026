@@ -11,7 +11,7 @@ const backBtn = {
   fontSize: "18px",
   color: "#000",
   transition: "0.2s",
-  marginTop: "20px"
+  marginBottom: "20px"
 };
 
 const backBtnHover = {
@@ -49,6 +49,16 @@ export default function Calendario() {
     <div style={{ padding: "20px" }}>
       <h1>Calendario Champions 2026</h1>
 
+      {/* TORNA ALLA HOME - IN ALTO */}
+      <Link
+        to="/"
+        style={backBtn}
+        onMouseEnter={(e) => Object.assign(e.currentTarget.style, backBtnHover)}
+        onMouseLeave={(e) => Object.assign(e.currentTarget.style, backBtn)}
+      >
+        ⬅ Torna alla Home
+      </Link>
+
       {[...Array(21)].map((_, index) => {
         const giornata = index + 1;
         const partite = matches.filter(m => m.giornata === giornata);
@@ -71,16 +81,6 @@ export default function Calendario() {
           </div>
         );
       })}
-
-      {/* TORNA ALLA HOME */}
-      <Link
-        to="/"
-        style={backBtn}
-        onMouseEnter={(e) => Object.assign(e.currentTarget.style, backBtnHover)}
-        onMouseLeave={(e) => Object.assign(e.currentTarget.style, backBtn)}
-      >
-        ⬅ Torna alla Home
-      </Link>
     </div>
   );
 }

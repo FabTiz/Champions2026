@@ -1,25 +1,22 @@
-import { useState, useEffect } from "react";
+import { useEffect, useState } from "react";
+import { Link } from "react-router-dom";
 import { supabase } from "../supabaseClient";
 
-// Turni: 7 turni da 3 giornate
-const TURNS = [
-  { id: 1, giornate: [1, 2, 3] },
-  { id: 2, giornate: [4, 5, 6] },
-  { id: 3, giornate: [7, 8, 9] },
-  { id: 4, giornate: [10, 11, 12] },
-  { id: 5, giornate: [13, 14, 15] },
-  { id: 6, giornate: [16, 17, 18] },
-  { id: 7, giornate: [19, 20, 21] },
-];
+const backBtn = {
+  display: "inline-block",
+  padding: "10px 15px",
+  background: "#ddd",
+  borderRadius: "8px",
+  textDecoration: "none",
+  fontSize: "18px",
+  color: "#000",
+  transition: "0.2s",
+  margin: "20px 0"
+};
 
-const PERSONAL_MISSIONS = [
-  "Dominio Offensivo",
-  "Qualità di Squadra",
-  "Bonus Diffuso",
-  "One Shot",
-  "Continuità Europea",
-  "Top Performer",
-];
+const backBtnHover = {
+  background: "#ccc",
+};
 
 export default function Turno() {
   const [giornata, setGiornata] = useState("");
@@ -27,6 +24,26 @@ export default function Turno() {
   const [squads, setSquads] = useState([]);
   const [missioniScelte, setMissioniScelte] = useState({});
   const [risultatiTurno, setRisultatiTurno] = useState([]);
+
+  // Turni
+  const TURNS = [
+    { id: 1, giornate: [1, 2, 3] },
+    { id: 2, giornate: [4, 5, 6] },
+    { id: 3, giornate: [7, 8, 9] },
+    { id: 4, giornate: [10, 11, 12] },
+    { id: 5, giornate: [13, 14, 15] },
+    { id: 6, giornate: [16, 17, 18] },
+    { id: 7, giornate: [19, 20, 21] },
+  ];
+
+  const PERSONAL_MISSIONS = [
+    "Dominio Offensivo",
+    "Qualità di Squadra",
+    "Bonus Diffuso",
+    "One Shot",
+    "Continuità Europea",
+    "Top Performer",
+  ];
 
   // Carica squadre
   useEffect(() => {
@@ -76,8 +93,7 @@ export default function Turno() {
     const scores = risultati.map((r) => r.fantapunti);
     const totaleFantapunti = scores.reduce((a, b) => a + b, 0);
 
-    const comune =
-      Math.max(...scores) - Math.min(...scores) <= 10;
+    const comune = Math.max(...scores) - Math.min(...scores) <= 10;
 
     const missionePersonale = missioniScelte[squadId];
     let personale = false;
@@ -85,9 +101,7 @@ export default function Turno() {
     const r = {
       golTotali: risultati.reduce((a, b) => a + b.gol, 0),
       bonusTotali: risultati.reduce((a, b) => a + b.assist + b.rigori_parati, 0),
-      giocatoriConBonus: risultati.filter(
-        (x) => x.assist + x.rigori_parati > 0
-      ).length,
+      giocatoriConBonus: risultati.filter((x) => x.assist + x.rigori_parati > 0).length,
       top4Count: risultati.filter((x) => x.top4).length,
       votiBassi: risultati.reduce((a, b) => a + b.voti_bassi, 0),
       eventoSpeciale: risultati.some((x) => x.evento_speciale),
@@ -114,10 +128,7 @@ export default function Turno() {
         break;
     }
 
-    const leggendaria =
-      personale &&
-      r.eventoSpeciale &&
-      r.votiBassi <= 5;
+    const leggendaria = personale && r.eventoSpeciale && r.votiBassi <= 5;
 
     return { comune, personale, leggendaria };
   }
@@ -143,6 +154,16 @@ export default function Turno() {
     <div style={{ padding: "30px" }}>
       <h1>Gestione Turno Champions</h1>
 
+      {/* TORNA ALLA HOME - IN ALTO */}
+      <Link
+        to="/"
+        style={backBtn}
+        onMouseEnter={(e) => Object.assign(e.currentTarget.style, backBtnHover)}
+        onMouseLeave={(e) => Object.assign(e.currentTarget.style, backBtn)}
+      >
+        ⬅ Torna alla Home
+      </Link>
+
       {/* Selezione giornata */}
       <label>Seleziona giornata:</label>
       <select
@@ -156,6 +177,16 @@ export default function Turno() {
           </option>
         ))}
       </select>
+
+      {/* TORNA ALLA HOME - SUBITO DOPO IL MENU */}
+      <Link
+        to="/"
+        style={backBtn}
+        onMouseEnter={(e) => Object.assign(e.currentTarget.style, backBtnHover)}
+        onMouseLeave={(e) => Object.assign(e.currentTarget.style, backBtn)}
+      >
+        ⬅ Torna alla Home
+      </Link>
 
       {/* Mostra turno */}
       {turno && (
