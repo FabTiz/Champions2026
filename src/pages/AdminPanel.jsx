@@ -1,3 +1,4 @@
+import BackHome from "./BackHome";
 import { useState, useEffect } from "react";
 import { supabase } from "../supabaseClient";
 
