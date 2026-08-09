@@ -7,16 +7,17 @@ import Calendario from "./pages/Calendario";
 import Missioni from "./pages/Missioni";
 import DashboardSquadre from "./pages/DashboardSquadre";
 
-// nuove pagine Champions
 import Turno from "./pages/Turno";
 import ClassificaChampions from "./pages/ClassificaChampions";
+import AdminPanel from "./pages/AdminPanel";
 
 function App() {
   return (
     <BrowserRouter>
       <Routes>
-        {/* Pagine principali */}
         <Route path="/" element={<Home />} />
+
+        {/* Pagine principali */}
         <Route path="/dashboard" element={<Dashboard />} />
         <Route path="/squadre" element={<Squadre />} />
         <Route path="/calendario" element={<Calendario />} />
@@ -26,6 +27,9 @@ function App() {
         {/* Champions League Comp */}
         <Route path="/turno" element={<Turno />} />
         <Route path="/classifica-champions" element={<ClassificaChampions />} />
+
+        {/* Admin Panel */}
+        <Route path="/admin" element={<AdminPanel />} />
       </Routes>
     </BrowserRouter>
   );

@@ -103,6 +103,18 @@ export default function Home() {
             <p>Punti, fantapunti, differenze</p>
           </div>
         </Link>
+
+        {/* ADMIN PANEL */}
+        <Link to="/admin" style={{ textDecoration: "none", color: "inherit" }}>
+          <div
+            style={cardStyle}
+            onMouseEnter={(e) => Object.assign(e.currentTarget.style, cardHover)}
+            onMouseLeave={(e) => Object.assign(e.currentTarget.style, cardStyle)}
+          >
+            <h2>Admin Panel</h2>
+            <p>Gestione completa della competizione</p>
+          </div>
+        </Link>
       </div>
     </div>
   );
