@@ -36,13 +36,25 @@ const PERSONAL_MISSIONS = [
   "Top Performer",
 ];
 
+// Punteggi confermati
+const PUNTI = {
+  personale: 1,
+  comune: 0.5,
+  vittoria: 3,
+  pareggio: 1,
+  evento_speciale: 1,
+  leggendaria: 1,
+  voti_bassi: 0
+};
+
 export default function Turno() {
   const [turnoId, setTurnoId] = useState("");
   const [turno, setTurno] = useState(null);
   const [squads, setSquads] = useState([]);
 
-  // Stato per ogni giornata e squadra
+  // Stato tabellare
   const [giornataData, setGiornataData] = useState({});
+  const [punteggi, setPunteggi] = useState({});
 
   // Carica squadre
   useEffect(() => {
@@ -53,16 +65,20 @@ export default function Turno() {
     loadSquads();
   }, []);
 
-  // Quando selezioni un turno → carica le 3 giornate
+  // Quando selezioni un turno → inizializza le 3 giornate
   useEffect(() => {
-    if (!turnoId) return;
+    if (!turnoId || squads.length === 0) return;
+
     const t = TURNS.find((t) => t.id === Number(turnoId));
     setTurno(t);
 
-    // Inizializza struttura dati
     const init = {};
+    const initPunti = {};
+
     t.giornate.forEach((g) => {
       init[g] = {};
+      initPunti[g] = {};
+
       squads.forEach((s) => {
         init[g][s.id] = {
           personale_scelta: "",
@@ -70,17 +86,41 @@ export default function Turno() {
           comune: false,
           vittoria: false,
           evento_speciale: false,
-          voti_bassi: false,
+          voti_bassi: false
         };
+
+        initPunti[g][s.id] = 0;
       });
     });
 
     setGiornataData(init);
+    setPunteggi(initPunti);
   }, [turnoId, squads]);
+
+  // Calcolo punteggio parziale
+  function calcolaPunteggio(giornata, squadId) {
+    const d = giornataData[giornata][squadId];
+    let p = 0;
+
+    if (d.personale_completata) p += PUNTI.personale;
+    if (d.comune) p += PUNTI.comune;
+    if (d.vittoria) p += PUNTI.vittoria;
+    if (d.evento_speciale) p += PUNTI.evento_speciale;
+    if (d.voti_bassi) p += PUNTI.voti_bassi;
+
+    setPunteggi((prev) => ({
+      ...prev,
+      [giornata]: {
+        ...prev[giornata],
+        [squadId]: p
+      }
+    }));
+  }
 
   // Salva parziale
   async function salvaParziale(giornata, squadId) {
     const d = giornataData[giornata][squadId];
+    const p = punteggi[giornata][squadId];
 
     await supabase.from("missioni_parziali").upsert({
       turno_id: turno.id,
@@ -91,7 +131,14 @@ export default function Turno() {
       comune: d.comune,
       vittoria: d.vittoria,
       evento_speciale: d.evento_speciale,
-      voti_bassi: d.voti_bassi,
+      voti_bassi: d.voti_bassi
+    });
+
+    await supabase.from("punteggi_parziali").upsert({
+      turno_id: turno.id,
+      giornata,
+      squad_id: squadId,
+      punteggio: p
     });
 
     alert(`Salvato parziale giornata ${giornata} per squadra ${squadId}`);
@@ -104,9 +151,13 @@ export default function Turno() {
       let comuneOK = true;
       let eventoOK = false;
       let votiBassiTot = 0;
+      let punteggioFinale = 0;
 
       turno.giornate.forEach((g) => {
         const d = giornataData[g][squad.id];
+        const p = punteggi[g][squad.id];
+
+        punteggioFinale += p;
 
         if (!d.personale_completata) personaleOK = false;
         if (!d.comune) comuneOK = false;
@@ -119,12 +170,15 @@ export default function Turno() {
         eventoOK &&
         votiBassiTot <= 5;
 
+      if (leggendaria) punteggioFinale += PUNTI.leggendaria;
+
       await supabase.from("missioni_completate").upsert({
         turno_id: turno.id,
         squad_id: squad.id,
         comune: comuneOK,
         personale: personaleOK,
         leggendaria,
+        punteggio_finale: punteggioFinale
       });
     }
 
@@ -159,172 +213,188 @@ export default function Turno() {
         ))}
       </select>
 
-      {/* Mostra giornate */}
-      {turno && (
-        <div style={{ marginTop: "30px" }}>
-          <h2>Turno {turno.id}</h2>
-          <p>Giornate: {turno.giornate.join(", ")}</p>
+      {/* Tabelle giornate */}
+      {turno && turno.giornate.map((g) => (
+        <div key={g} style={{ marginTop: "40px" }}>
+          <h2>{g}ª Giornata</h2>
 
-          {turno.giornate.map((g) => (
-            <div key={g} style={{ marginTop: "30px", padding: "20px", border: "1px solid #ccc" }}>
-              <h3>{g}ª Giornata</h3>
+          <table border="1" cellPadding="8" style={{ borderCollapse: "collapse", width: "100%" }}>
+            <thead>
+              <tr>
+                <th>Squadra</th>
+                <th>Missione Personale</th>
+                <th>Completata</th>
+                <th>Comune</th>
+                <th>Vittoria</th>
+                <th>Evento Speciale</th>
+                <th>Voti Bassi</th>
+                <th>Punteggio</th>
+                <th>Salva</th>
+              </tr>
+            </thead>
 
+            <tbody>
               {squads.map((squad) => (
-                <div key={squad.id} style={{ marginBottom: "20px" }}>
-                  <strong>{squad.name}</strong>
+                <tr key={squad.id}>
+                  <td>{squad.name}</td>
 
                   {/* Missione personale scelta */}
-                  <select
-                    value={giornataData[g][squad.id].personale_scelta}
-                    onChange={(e) =>
-                      setGiornataData((prev) => ({
-                        ...prev,
-                        [g]: {
-                          ...prev[g],
-                          [squad.id]: {
-                            ...prev[g][squad.id],
-                            personale_scelta: e.target.value,
-                          },
-                        },
-                      }))
-                    }
-                    style={{ marginLeft: "10px" }}
-                  >
-                    <option value="">-- missione personale --</option>
-                    {PERSONAL_MISSIONS.map((m) => (
-                      <option key={m} value={m}>{m}</option>
-                    ))}
-                  </select>
+                  <td>
+                    <select
+                      value={giornataData[g][squad.id].personale_scelta}
+                      onChange={(e) => {
+                        setGiornataData((prev) => ({
+                          ...prev,
+                          [g]: {
+                            ...prev[g],
+                            [squad.id]: {
+                              ...prev[g][squad.id],
+                              personale_scelta: e.target.value
+                            }
+                          }
+                        }));
+                      }}
+                    >
+                      <option value="">-- scegli --</option>
+                      {PERSONAL_MISSIONS.map((m) => (
+                        <option key={m} value={m}>{m}</option>
+                      ))}
+                    </select>
+                  </td>
 
-                  {/* Checkbox missione personale completata */}
-                  <label style={{ marginLeft: "10px" }}>
+                  {/* Checkbox missione personale */}
+                  <td>
                     <input
                       type="checkbox"
                       checked={giornataData[g][squad.id].personale_completata}
-                      onChange={(e) =>
+                      onChange={(e) => {
                         setGiornataData((prev) => ({
                           ...prev,
                           [g]: {
                             ...prev[g],
                             [squad.id]: {
                               ...prev[g][squad.id],
-                              personale_completata: e.target.checked,
-                            },
-                          },
-                        }))
-                      }
+                              personale_completata: e.target.checked
+                            }
+                          }
+                        }));
+                        calcolaPunteggio(g, squad.id);
+                      }}
                     />
-                    Missione personale completata
-                  </label>
+                  </td>
 
                   {/* Comune */}
-                  <label style={{ marginLeft: "10px" }}>
+                  <td>
                     <input
                       type="checkbox"
                       checked={giornataData[g][squad.id].comune}
-                      onChange={(e) =>
+                      onChange={(e) => {
                         setGiornataData((prev) => ({
                           ...prev,
                           [g]: {
                             ...prev[g],
                             [squad.id]: {
                               ...prev[g][squad.id],
-                              comune: e.target.checked,
-                            },
-                          },
-                        }))
-                      }
+                              comune: e.target.checked
+                            }
+                          }
+                        }));
+                        calcolaPunteggio(g, squad.id);
+                      }}
                     />
-                    Missione comune
-                  </label>
+                  </td>
 
                   {/* Vittoria */}
-                  <label style={{ marginLeft: "10px" }}>
+                  <td>
                     <input
                       type="checkbox"
                       checked={giornataData[g][squad.id].vittoria}
-                      onChange={(e) =>
+                      onChange={(e) => {
                         setGiornataData((prev) => ({
                           ...prev,
                           [g]: {
                             ...prev[g],
                             [squad.id]: {
                               ...prev[g][squad.id],
-                              vittoria: e.target.checked,
-                            },
-                          },
-                        }))
-                      }
+                              vittoria: e.target.checked
+                            }
+                          }
+                        }));
+                        calcolaPunteggio(g, squad.id);
+                      }}
                     />
-                    Vittoria/Pareggio
-                  </label>
+                  </td>
 
                   {/* Evento speciale */}
-                  <label style={{ marginLeft: "10px" }}>
+                  <td>
                     <input
                       type="checkbox"
                       checked={giornataData[g][squad.id].evento_speciale}
-                      onChange={(e) =>
+                      onChange={(e) => {
                         setGiornataData((prev) => ({
                           ...prev,
                           [g]: {
                             ...prev[g],
                             [squad.id]: {
                               ...prev[g][squad.id],
-                              evento_speciale: e.target.checked,
-                            },
-                          },
-                        }))
-                      }
+                              evento_speciale: e.target.checked
+                            }
+                          }
+                        }));
+                        calcolaPunteggio(g, squad.id);
+                      }}
                     />
-                    Evento speciale
-                  </label>
+                  </td>
 
                   {/* Voti bassi */}
-                  <label style={{ marginLeft: "10px" }}>
+                  <td>
                     <input
                       type="checkbox"
                       checked={giornataData[g][squad.id].voti_bassi}
-                      onChange={(e) =>
+                      onChange={(e) => {
                         setGiornataData((prev) => ({
                           ...prev,
                           [g]: {
                             ...prev[g],
                             [squad.id]: {
                               ...prev[g][squad.id],
-                              voti_bassi: e.target.checked,
-                            },
-                          },
-                        }))
-                      }
+                              voti_bassi: e.target.checked
+                            }
+                          }
+                        }));
+                        calcolaPunteggio(g, squad.id);
+                      }}
                     />
-                    Voti bassi
-                  </label>
+                  </td>
 
-                  {/* SALVA PARZIALE */}
-                  <button
-                    style={{ marginLeft: "20px" }}
-                    onClick={() => salvaParziale(g, squad.id)}
-                  >
-                    Salva Parziale
-                  </button>
-                </div>
+                  {/* Punteggio */}
+                  <td>{punteggi[g][squad.id]}</td>
+
+                  {/* Salva */}
+                  <td>
+                    <button onClick={() => salvaParziale(g, squad.id)}>
+                      Salva
+                    </button>
+                  </td>
+                </tr>
               ))}
-            </div>
-          ))}
-
-          {/* CALCOLO FINALE */}
-          <button
-            onClick={calcolaFinale}
-            style={{
-              marginTop: "30px",
-              padding: "10px 20px",
-              fontSize: "16px",
-            }}
-          >
-            Calcola Missioni del Turno
-          </button>
+            </tbody>
+          </table>
         </div>
+      ))}
+
+      {/* CALCOLO FINALE */}
+      {turno && (
+        <button
+          onClick={calcolaFinale}
+          style={{
+            marginTop: "40px",
+            padding: "10px 20px",
+            fontSize: "16px"
+          }}
+        >
+          Calcola Missioni del Turno
+        </button>
       )}
     </div>
   );
