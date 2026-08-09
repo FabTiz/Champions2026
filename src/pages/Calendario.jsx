@@ -3,24 +3,33 @@ import { supabase } from "../supabaseClient";
 
 export default function Calendario() {
   const [matches, setMatches] = useState([]);
+  const [squads, setSquads] = useState([]);
 
   useEffect(() => {
-    async function loadMatches() {
-      const { data, error } = await supabase
-        .from("matches")
-        .select("*")
-        .order("giornata", { ascending: true });
-
-      if (error) {
-        console.error("Errore nel caricamento delle partite:", error);
-        return;
-      }
-
-      setMatches(data);
-    }
-
-    loadMatches();
+    loadData();
   }, []);
+
+  async function loadData() {
+    // Carica partite
+    const { data: matchesData } = await supabase
+      .from("matches")
+      .select("*")
+      .order("giornata", { ascending: true });
+
+    // Carica squadre
+    const { data: squadsData } = await supabase
+      .from("squads")
+      .select("*");
+
+    setMatches(matchesData || []);
+    setSquads(squadsData || []);
+  }
+
+  // Mappa ID → Nome squadra
+  const squadName = (id) => {
+    const s = squads.find((sq) => sq.id === id);
+    return s ? s.name : `Squadra ${id}`;
+  };
 
   return (
     <div style={{ padding: "20px" }}>
@@ -40,7 +49,7 @@ export default function Calendario() {
               <ul>
                 {partite.map(match => (
                   <li key={match.id}>
-                    {match.home_team} vs {match.away_team}
+                    {squadName(match.home_team)} vs {squadName(match.away_team)}
                   </li>
                 ))}
               </ul>
