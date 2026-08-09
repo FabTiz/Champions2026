@@ -32,6 +32,7 @@ export default function Home() {
       </h1>
 
       <div style={containerStyle}>
+        {/* DASHBOARD */}
         <Link to="/dashboard" style={{ textDecoration: "none", color: "inherit" }}>
           <div
             style={cardStyle}
@@ -43,6 +44,7 @@ export default function Home() {
           </div>
         </Link>
 
+        {/* SQUADRE */}
         <Link to="/squadre" style={{ textDecoration: "none", color: "inherit" }}>
           <div
             style={cardStyle}
@@ -54,6 +56,7 @@ export default function Home() {
           </div>
         </Link>
 
+        {/* CALENDARIO */}
         <Link to="/calendario" style={{ textDecoration: "none", color: "inherit" }}>
           <div
             style={cardStyle}
@@ -62,6 +65,18 @@ export default function Home() {
           >
             <h2>Calendario</h2>
             <p>Giornate, turni e risultati</p>
+          </div>
+        </Link>
+
+        {/* ⭐ MISSIONI — NUOVA CARD ⭐ */}
+        <Link to="/missioni" style={{ textDecoration: "none", color: "inherit" }}>
+          <div
+            style={cardStyle}
+            onMouseEnter={(e) => Object.assign(e.currentTarget.style, cardHover)}
+            onMouseLeave={(e) => Object.assign(e.currentTarget.style, cardStyle)}
+          >
+            <h2>Missioni</h2>
+            <p>Obiettivi, progressi e attività</p>
           </div>
         </Link>
       </div>
