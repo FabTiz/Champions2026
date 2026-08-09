@@ -2,6 +2,21 @@ import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import { supabase } from "../supabaseClient";
 
+const backBtn = {
+  display: "inline-block",
+  padding: "10px 15px",
+  background: "#ddd",
+  borderRadius: "8px",
+  textDecoration: "none",
+  fontSize: "18px",
+  color: "#000",
+  transition: "0.2s",
+};
+
+const backBtnHover = {
+  background: "#ccc",
+};
+
 export default function AdminPanel() {
   const [openSection, setOpenSection] = useState(null);
 
@@ -13,12 +28,15 @@ export default function AdminPanel() {
     <div style={{ padding: "30px" }}>
       <h1>Admin Panel – Champions League Comp</h1>
 
-      {/* LINK HOME */}
-      <div style={{ marginBottom: "20px" }}>
-        <Link to="/" style={{ fontSize: "18px", textDecoration: "none" }}>
-          ⬅ Torna alla Home
-        </Link>
-      </div>
+      {/* TORNA ALLA HOME */}
+      <Link
+        to="/"
+        style={backBtn}
+        onMouseEnter={(e) => Object.assign(e.currentTarget.style, backBtnHover)}
+        onMouseLeave={(e) => Object.assign(e.currentTarget.style, backBtn)}
+      >
+        ⬅ Torna alla Home
+      </Link>
 
       <Section title="Squadre" id="squadre" openSection={openSection} toggle={toggle}>
         <SquadreAdmin />
@@ -281,12 +299,3 @@ function UomoChampionsAdmin() {
     </>
   );
 }
-{/* TORNA ALLA HOME */}
-      <Link
-        to="/"
-        style={backBtn}
-        onMouseEnter={(e) => Object.assign(e.currentTarget.style, backBtnHover)}
-        onMouseLeave={(e) => Object.assign(e.currentTarget.style, backBtn)}
-      >
-        Torna alla Home
-      </Link>
