@@ -13,12 +13,13 @@ function App() {
   return (
     <BrowserRouter>
       <Routes>
+        {/* Pagine principali */}
         <Route path="/" element={<Home />} />
         <Route path="/dashboard" element={<Dashboard />} />
         <Route path="/squadre" element={<Squadre />} />
         <Route path="/calendario" element={<Calendario />} />
 
-        {/* nuove rotte */}
+        {/* Nuove pagine */}
         <Route path="/missioni" element={<Missioni />} />
         <Route path="/dashboard-squadre" element={<DashboardSquadre />} />
       </Routes>
@@ -27,6 +28,3 @@ function App() {
 }
 
 export default App;
-import Calendario from "./pages/Calendario";
-
-<Route path="/calendario" element={<Calendario />} />
