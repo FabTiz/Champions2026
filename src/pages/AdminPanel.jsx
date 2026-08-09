@@ -281,3 +281,12 @@ function UomoChampionsAdmin() {
     </>
   );
 }
+{/* TORNA ALLA HOME */}
+      <Link
+        to="/"
+        style={backBtn}
+        onMouseEnter={(e) => Object.assign(e.currentTarget.style, backBtnHover)}
+        onMouseLeave={(e) => Object.assign(e.currentTarget.style, backBtn)}
+      >
+        Torna alla Home
+      </Link>
