@@ -1,4 +1,5 @@
 import { supabase } from './supabaseClient';
+import InsertLeagueTurn from "./components/InsertLeagueTurn";
 
 function App() {
   async function testConnection() {
@@ -9,13 +10,6 @@ function App() {
 
   testConnection();
 
-  return <h1>Champions League Comp</h1>;
-}
-
-export default App;
-import InsertLeagueTurn from "./components/InsertLeagueTurn";
-
-function App() {
   return (
     <>
       <h1>Champions League Comp</h1>
@@ -23,3 +17,6 @@ function App() {
     </>
   );
 }
+
+export default App;
+
