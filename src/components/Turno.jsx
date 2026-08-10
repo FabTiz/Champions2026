@@ -24,17 +24,39 @@ export default function Turno({
 }) {
   const turnoIdx = selectedTurno - 1;
 
-  function isLeggendaria(g) {
-    return !!(g.missionePersonaleCompletata && g.missionePersonaleX && g.golParata && g.votiBassi);
+  function getCumulativeFlags(teamTurno, giornataIndex) {
+    const giornate = teamTurno?.giornate?.slice(0, giornataIndex + 1) || [];
+
+    return giornate.reduce(
+      (acc, giornata) => {
+        acc.missionePersonaleX = acc.missionePersonaleX || !!giornata.missionePersonaleX || !!giornata.missionePersonaleCompletata;
+        acc.golParata = acc.golParata || !!giornata.golParata;
+        acc.votiBassi = acc.votiBassi || !!giornata.votiBassi;
+        return acc;
+      },
+      { missionePersonaleX: false, golParata: false, votiBassi: false }
+    );
   }
 
-  function computeGiornataScore(g) {
+  function isLeggendariaReached(teamTurno, giornataIndex) {
+    const flags = getCumulativeFlags(teamTurno, giornataIndex);
+    return !!(flags.missionePersonaleX && flags.golParata && flags.votiBassi);
+  }
+
+  function computeGiornataScore(teamTurno, giornataIndex) {
+    const g = teamTurno?.giornate?.[giornataIndex];
+    if (!g) return 0;
+
     let s = 0;
     if (g.missionePersonale && g.missionePersonaleCompletata) s += 1;
-    if (g.missionePersonaleX && g.golParata && g.votiBassi) s += 1;
     if (g.missioneComune) s += 0.5;
     if (g.vittoria) s += 3;
     else if (g.pareggio) s += 1;
+
+    const leggendariaNow = isLeggendariaReached(teamTurno, giornataIndex);
+    const leggendariaBefore = giornataIndex > 0 ? isLeggendariaReached(teamTurno, giornataIndex - 1) : false;
+    if (leggendariaNow && !leggendariaBefore) s += 1;
+
     return s;
   }
 
@@ -42,8 +64,7 @@ export default function Turno({
     const giornataNumero = turnoIdx * 3 + giornataIndex + 1;
     const totaleGiornata = teams.reduce((acc, team) => {
       const teamTurno = team.perTurni?.[turnoIdx];
-      const giornata = teamTurno?.giornate?.[giornataIndex];
-      return acc + (giornata ? computeGiornataScore(giornata) : 0);
+      return acc + computeGiornataScore(teamTurno, giornataIndex);
     }, 0);
 
     return (
@@ -79,6 +100,8 @@ export default function Turno({
             {teams.map(team => {
               const teamTurno = team.perTurni?.[turnoIdx];
               const g = teamTurno?.giornate?.[giornataIndex];
+              const cumulativeFlags = getCumulativeFlags(teamTurno, giornataIndex);
+              const previousFlags = giornataIndex > 0 ? getCumulativeFlags(teamTurno, giornataIndex - 1) : { missionePersonaleX: false, golParata: false, votiBassi: false };
               if (!g) return null;
 
               return (
@@ -143,30 +166,40 @@ export default function Turno({
                   <td style={cellCenter}>
                     <input
                       type="checkbox"
-                      checked={!!g.missionePersonaleX}
-                      disabled={!g.missionePersonale}
+                      checked={!!cumulativeFlags.missionePersonaleX}
+                      disabled={!g.missionePersonale || previousFlags.missionePersonaleX}
                       onChange={() => onToggleField(team.id, turnoIdx, giornataIndex, "missionePersonaleX")}
-                      title={g.missionePersonale ? "Auto-attivata con Missione Personale" : "Seleziona prima una missione personale"}
+                      title={
+                        previousFlags.missionePersonaleX
+                          ? "Requisito gia raggiunto in una giornata precedente"
+                          : g.missionePersonale
+                            ? "Requisito cumulativo del turno"
+                            : "Seleziona prima una missione personale"
+                      }
                     />
                   </td>
 
                   <td style={cellCenter}>
                     <input
                       type="checkbox"
-                      checked={!!g.golParata}
+                      checked={!!cumulativeFlags.golParata}
+                      disabled={previousFlags.golParata}
                       onChange={() => onToggleField(team.id, turnoIdx, giornataIndex, "golParata")}
+                      title={previousFlags.golParata ? "Requisito gia raggiunto in una giornata precedente" : "Gol / Parato cumulativo nel turno"}
                     />
                   </td>
 
                   <td style={cellCenter}>
                     <input
                       type="checkbox"
-                      checked={!!g.votiBassi}
+                      checked={!!cumulativeFlags.votiBassi}
+                      disabled={previousFlags.votiBassi}
                       onChange={() => onToggleField(team.id, turnoIdx, giornataIndex, "votiBassi")}
+                      title={previousFlags.votiBassi ? "Requisito gia raggiunto in una giornata precedente" : "Voti bassi cumulativi nel turno"}
                     />
                   </td>
 
-                  <td style={{ ...cellCenter, fontWeight: 600 }}>{computeGiornataScore(g)}</td>
+                  <td style={{ ...cellCenter, fontWeight: 600 }}>{computeGiornataScore(teamTurno, giornataIndex)}</td>
 
                   <td style={cellCenter}>
                     <button type="button" onClick={() => onSaveGiornata(giornataIndex)} style={{ padding: "4px 8px" }}>
@@ -195,14 +228,14 @@ export default function Turno({
         const giornate = teamTurno?.giornate?.slice(0, giornataIndex + 1) || [];
 
         const stats = giornate.reduce(
-          (acc, g) => {
+          (acc, g, index) => {
             acc.G += g.missionePersonale ? 1 : 0;
             acc.Vit += g.vittoria ? 1 : 0;
             acc.Par += g.pareggio ? 1 : 0;
             acc.MP += g.missionePersonaleCompletata ? 1 : 0;
             acc.MC += g.missioneComune ? 1 : 0;
-            acc.ML += isLeggendaria(g) ? 1 : 0;
-            acc.Punti += computeGiornataScore(g);
+            acc.ML = isLeggendariaReached(teamTurno, index) ? 1 : acc.ML;
+            acc.Punti += computeGiornataScore(teamTurno, index);
             return acc;
           },
           { G: 0, Vit: 0, Par: 0, MP: 0, MC: 0, ML: 0, Punti: 0 }
