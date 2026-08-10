@@ -7,7 +7,7 @@ import Calendario from "./pages/Calendario";
 import Missioni from "./pages/Missioni";
 import DashboardSquadre from "./pages/DashboardSquadre";
 
-import Turno from "./pages/Turno";
+import Turno from "./pages/TurnoOLD";
 import ClassificaChampions from "./pages/ClassificaChampions";
 import AdminPanel from "./pages/AdminPanel";
 

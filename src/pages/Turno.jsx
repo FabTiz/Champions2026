@@ -13,10 +13,8 @@ const backBtn = {
   transition: "0.2s",
   margin: "20px 0"
 };
-
 const backBtnHover = { background: "#ccc" };
 
-// Turni → 3 giornate ciascuno
 const TURNS = [
   { id: 1, giornate: [1, 2, 3] },
   { id: 2, giornate: [4, 5, 6] },
@@ -36,13 +34,12 @@ const PERSONAL_MISSIONS = [
   "Top Performer",
 ];
 
-// Punteggi confermati
 const PUNTI = {
   personale: 1,
   comune: 0.5,
   vittoria: 3,
   pareggio: 1,
-  evento_speciale: 1,
+  bonus_trio: 1, // missione_personale_x + gol/parato + voti_bassi
   leggendaria: 1,
   voti_bassi: 0
 };
@@ -52,11 +49,11 @@ export default function Turno() {
   const [turno, setTurno] = useState(null);
   const [squads, setSquads] = useState([]);
 
-  // Stato tabellare
+  // struttura: { giornata: { [squadId]: { ...fields } } }
   const [giornataData, setGiornataData] = useState({});
+  // punteggi: { giornata: { [squadId]: number } }
   const [punteggi, setPunteggi] = useState({});
 
-  // Carica squadre
   useEffect(() => {
     async function loadSquads() {
       const { data } = await supabase.from("squads").select("*");
@@ -65,75 +62,121 @@ export default function Turno() {
     loadSquads();
   }, []);
 
-  // Quando selezioni un turno → inizializza le 3 giornate
   useEffect(() => {
     if (!turnoId || squads.length === 0) return;
-
-    const t = TURNS.find((t) => t.id === Number(turnoId));
+    const t = TURNS.find((x) => x.id === Number(turnoId));
     setTurno(t);
 
-    const init = {};
+    const initData = {};
     const initPunti = {};
-
     t.giornate.forEach((g) => {
-      init[g] = {};
+      initData[g] = {};
       initPunti[g] = {};
-
       squads.forEach((s) => {
-        init[g][s.id] = {
+        initData[g][s.id] = {
           personale_scelta: "",
           personale_completata: false,
+          personale_x: false, // viene impostata automaticamente quando personale_completata = true
           comune: false,
           vittoria: false,
-          evento_speciale: false,
+          pareggio: false,
+          gol_parato: false,
           voti_bassi: false
         };
-
         initPunti[g][s.id] = 0;
       });
     });
-
-    setGiornataData(init);
+    setGiornataData(initData);
     setPunteggi(initPunti);
   }, [turnoId, squads]);
 
-  // Calcolo punteggio parziale
-  function calcolaPunteggio(giornata, squadId) {
-    const d = giornataData[giornata][squadId];
+  // calcola punteggio da uno stato riga (usando i valori passati)
+  function computeRowPointsFromState(row) {
+    if (!row) return 0;
     let p = 0;
-
-    if (d.personale_completata) p += PUNTI.personale;
-    if (d.comune) p += PUNTI.comune;
-    if (d.vittoria) p += PUNTI.vittoria;
-    if (d.evento_speciale) p += PUNTI.evento_speciale;
-    if (d.voti_bassi) p += PUNTI.voti_bassi;
-
-    setPunteggi((prev) => ({
-      ...prev,
-      [giornata]: {
-        ...prev[giornata],
-        [squadId]: p
-      }
-    }));
+    if (row.personale_completata) p += PUNTI.personale;
+    if (row.comune) p += PUNTI.comune;
+    if (row.vittoria) p += PUNTI.vittoria;
+    else if (row.pareggio) p += PUNTI.pareggio;
+    // trio: personale_x + gol_parato + voti_bassi => +1 solo se tutte e tre true
+    if (row.personale_x && row.gol_parato && row.voti_bassi) p += PUNTI.bonus_trio;
+    return p;
   }
 
-  // Salva parziale
-  async function salvaParziale(giornata, squadId) {
-    const d = giornataData[giornata][squadId];
-    const p = punteggi[giornata][squadId];
+  // aggiorna campo e ricalcola punteggio immediatamente usando il nuovo stato
+  function updateField(giornata, squadId, field, value) {
+    setGiornataData((prev) => {
+      const copy = { ...prev };
+      if (!copy[giornata]) copy[giornata] = {};
+      const prevRow = copy[giornata][squadId] || {};
+      const newRow = { ...prevRow, [field]: value };
 
+      // regole aggiuntive:
+      // 1) se si deseleziona la scelta della missione personale (select vuoto), azzera personale_completata e personale_x
+      if (field === "personale_scelta" && (value === "" || value == null)) {
+        newRow.personale_completata = false;
+        newRow.personale_x = false;
+      }
+
+      // 2) se si cambia personale_completata:
+      //    - se diventa true => impostiamo automaticamente personale_x = true
+      //    - se diventa false => togliamo personale_x = false (così il trio non può essere soddisfatto)
+      if (field === "personale_completata") {
+        if (value === true) {
+          newRow.personale_x = true;
+        } else {
+          newRow.personale_x = false;
+        }
+      }
+
+      // 3) vittoria/pareggio mutua esclusione: se impostiamo vittoria true => pareggio false; se impostiamo pareggio true => vittoria false
+      if (field === "vittoria" && value === true) {
+        newRow.pareggio = false;
+      }
+      if (field === "pareggio" && value === true) {
+        newRow.vittoria = false;
+      }
+
+      copy[giornata] = { ...copy[giornata], [squadId]: newRow };
+
+      // aggiorna anche i punteggi nello stesso setState per evitare race condition
+      setPunteggi((pprev) => {
+        const pcopy = { ...pprev };
+        if (!pcopy[giornata]) pcopy[giornata] = {};
+        pcopy[giornata] = { ...pcopy[giornata], [squadId]: computeRowPointsFromState(newRow) };
+        return pcopy;
+      });
+
+      return copy;
+    });
+  }
+
+  // salva parziale: missioni_parziali + punteggi_parziali
+  async function salvaParziale(giornata, squadId) {
+    const d = giornataData[giornata] && giornataData[giornata][squadId];
+    const p = (punteggi[giornata] && punteggi[giornata][squadId]) || 0;
+
+    if (!d) {
+      alert("Nessun dato da salvare per questa riga.");
+      return;
+    }
+
+    // upsert missioni_parziali
     await supabase.from("missioni_parziali").upsert({
       turno_id: turno.id,
       giornata,
       squad_id: squadId,
       personale_scelta: d.personale_scelta,
       personale_completata: d.personale_completata,
+      personale_x: d.personale_x,
       comune: d.comune,
       vittoria: d.vittoria,
-      evento_speciale: d.evento_speciale,
+      pareggio: d.pareggio,
+      gol_parato: d.gol_parato,
       voti_bassi: d.voti_bassi
     });
 
+    // upsert punteggi_parziali
     await supabase.from("punteggi_parziali").upsert({
       turno_id: turno.id,
       giornata,
@@ -141,55 +184,94 @@ export default function Turno() {
       punteggio: p
     });
 
-    alert(`Salvato parziale giornata ${giornata} per squadra ${squadId}`);
+    alert(`Salvato parziale: giornata ${giornata} - squadra ${squadId} (punteggio ${p})`);
   }
 
-  // Calcolo finale del turno
+  // calcolo finale: somma punteggi delle 3 giornate e applica leggendaria se necessario
   async function calcolaFinale() {
-    for (const squad of squads) {
+    for (const s of squads) {
+      let totale = 0;
       let personaleOK = true;
       let comuneOK = true;
       let eventoOK = false;
-      let votiBassiTot = 0;
-      let punteggioFinale = 0;
+      let votiBassiCount = 0;
 
-      turno.giornate.forEach((g) => {
-        const d = giornataData[g][squad.id];
-        const p = punteggi[g][squad.id];
+      for (const g of turno.giornate) {
+        const d = giornataData[g] && giornataData[g][s.id];
+        const p = (punteggi[g] && punteggi[g][s.id]) || 0;
+        totale += p;
 
-        punteggioFinale += p;
+        if (!d || !d.personale_completata) personaleOK = false;
+        if (!d || !d.comune) comuneOK = false;
+        if (d && d.gol_parato) eventoOK = true;
+        if (d && d.voti_bassi) votiBassiCount += 1;
+      }
 
-        if (!d.personale_completata) personaleOK = false;
-        if (!d.comune) comuneOK = false;
-        if (d.evento_speciale) eventoOK = true;
-        if (d.voti_bassi) votiBassiTot += 1;
-      });
-
-      const leggendaria =
-        personaleOK &&
-        eventoOK &&
-        votiBassiTot <= 5;
-
-      if (leggendaria) punteggioFinale += PUNTI.leggendaria;
+      const leggendaria = personaleOK && eventoOK && votiBassiCount <= 5;
+      if (leggendaria) totale += PUNTI.leggendaria;
 
       await supabase.from("missioni_completate").upsert({
         turno_id: turno.id,
-        squad_id: squad.id,
+        squad_id: s.id,
         comune: comuneOK,
         personale: personaleOK,
         leggendaria,
-        punteggio_finale: punteggioFinale
+        punteggio_finale: totale
       });
     }
 
-    alert("Calcolo finale completato!");
+    alert("Calcolo finale completato e classifica aggiornata.");
+  }
+
+  // cella che mostra trio e punteggio riga
+  function renderTrioCell(g, s) {
+    const d = giornataData[g] && giornataData[g][s.id];
+    const p = (punteggi[g] && punteggi[g][s.id]) || 0;
+    if (!d) return null;
+
+    return (
+      <div>
+        <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
+          <label>
+            <input
+              type="checkbox"
+              // personale_x viene impostata automaticamente quando si spunta "Completata"
+              checked={d.personale_x}
+              onChange={(e) => updateField(g, s.id, "personale_x", e.target.checked)}
+            />{" "}
+            Missione Personale X
+          </label>
+
+          <label>
+            <input
+              type="checkbox"
+              checked={d.gol_parato}
+              onChange={(e) => updateField(g, s.id, "gol_parato", e.target.checked)}
+            />{" "}
+            Gol / Parato
+          </label>
+
+          <label>
+            <input
+              type="checkbox"
+              checked={d.voti_bassi}
+              onChange={(e) => updateField(g, s.id, "voti_bassi", e.target.checked)}
+            />{" "}
+            Voti Bassi
+          </label>
+        </div>
+
+        <div style={{ marginTop: 6 }}>
+          <strong>Punteggio riga:</strong> {p}
+        </div>
+      </div>
+    );
   }
 
   return (
-    <div style={{ padding: "30px" }}>
+    <div style={{ padding: 30 }}>
       <h1>Gestione Turno Champions</h1>
 
-      {/* TORNA ALLA HOME */}
       <Link
         to="/"
         style={backBtn}
@@ -199,23 +281,18 @@ export default function Turno() {
         ⬅ Torna alla Home
       </Link>
 
-      {/* Seleziona turno */}
-      <label>Seleziona turno:</label>
-      <select
-        value={turnoId}
-        onChange={(e) => setTurnoId(e.target.value)}
-      >
-        <option value="">-- scegli turno --</option>
-        {TURNS.map((t) => (
-          <option key={t.id} value={t.id}>
-            Turno {t.id}
-          </option>
-        ))}
-      </select>
+      <div style={{ marginTop: 12 }}>
+        <label>Seleziona turno: </label>
+        <select value={turnoId} onChange={(e) => setTurnoId(e.target.value)}>
+          <option value="">-- scegli turno --</option>
+          {TURNS.map((t) => (
+            <option key={t.id} value={t.id}>Turno {t.id}</option>
+          ))}
+        </select>
+      </div>
 
-      {/* Tabelle giornate */}
       {turno && turno.giornate.map((g) => (
-        <div key={g} style={{ marginTop: "40px" }}>
+        <div key={g} style={{ marginTop: 30 }}>
           <h2>{g}ª Giornata</h2>
 
           <table border="1" cellPadding="8" style={{ borderCollapse: "collapse", width: "100%" }}>
@@ -223,178 +300,98 @@ export default function Turno() {
               <tr>
                 <th>Squadra</th>
                 <th>Missione Personale</th>
-                <th>Completata</th>
-                <th>Comune</th>
-                <th>Vittoria</th>
-                <th>Evento Speciale</th>
-                <th>Voti Bassi</th>
-                <th>Punteggio</th>
+                <th>Completata (si/no)</th>
+                <th>Miss. Comune</th>
+                <th>Vittoria/Pareggio Giornata</th>
+                <th>Missione Personale X, Gol / Parato, Voti Bassi Punteggio</th>
                 <th>Salva</th>
               </tr>
             </thead>
 
             <tbody>
-              {squads.map((squad) => (
-                <tr key={squad.id}>
-                  <td>{squad.name}</td>
+              {squads.map((s) => {
+                const row = giornataData[g] && giornataData[g][s.id];
+                return (
+                  <tr key={s.id}>
+                    <td>{s.name}</td>
 
-                  {/* Missione personale scelta */}
-                  <td>
-                    <select
-                      value={giornataData[g][squad.id].personale_scelta}
-                      onChange={(e) => {
-                        setGiornataData((prev) => ({
-                          ...prev,
-                          [g]: {
-                            ...prev[g],
-                            [squad.id]: {
-                              ...prev[g][squad.id],
-                              personale_scelta: e.target.value
-                            }
-                          }
-                        }));
-                      }}
-                    >
-                      <option value="">-- scegli --</option>
-                      {PERSONAL_MISSIONS.map((m) => (
-                        <option key={m} value={m}>{m}</option>
-                      ))}
-                    </select>
-                  </td>
+                    <td>
+                      <select
+                        value={row ? row.personale_scelta : ""}
+                        onChange={(e) => updateField(g, s.id, "personale_scelta", e.target.value)}
+                      >
+                        <option value="">-- scegli --</option>
+                        {PERSONAL_MISSIONS.map((m) => (
+                          <option key={m} value={m}>{m}</option>
+                        ))}
+                      </select>
+                    </td>
 
-                  {/* Checkbox missione personale */}
-                  <td>
-                    <input
-                      type="checkbox"
-                      checked={giornataData[g][squad.id].personale_completata}
-                      onChange={(e) => {
-                        setGiornataData((prev) => ({
-                          ...prev,
-                          [g]: {
-                            ...prev[g],
-                            [squad.id]: {
-                              ...prev[g][squad.id],
-                              personale_completata: e.target.checked
-                            }
-                          }
-                        }));
-                        calcolaPunteggio(g, squad.id);
-                      }}
-                    />
-                  </td>
+                    <td style={{ textAlign: "center" }}>
+                      <input
+                        type="checkbox"
+                        checked={row ? row.personale_completata : false}
+                        onChange={(e) => updateField(g, s.id, "personale_completata", e.target.checked)}
+                      />
+                    </td>
 
-                  {/* Comune */}
-                  <td>
-                    <input
-                      type="checkbox"
-                      checked={giornataData[g][squad.id].comune}
-                      onChange={(e) => {
-                        setGiornataData((prev) => ({
-                          ...prev,
-                          [g]: {
-                            ...prev[g],
-                            [squad.id]: {
-                              ...prev[g][squad.id],
-                              comune: e.target.checked
-                            }
-                          }
-                        }));
-                        calcolaPunteggio(g, squad.id);
-                      }}
-                    />
-                  </td>
+                    <td style={{ textAlign: "center" }}>
+                      <input
+                        type="checkbox"
+                        checked={row ? row.comune : false}
+                        onChange={(e) => updateField(g, s.id, "comune", e.target.checked)}
+                      />
+                    </td>
 
-                  {/* Vittoria */}
-                  <td>
-                    <input
-                      type="checkbox"
-                      checked={giornataData[g][squad.id].vittoria}
-                      onChange={(e) => {
-                        setGiornataData((prev) => ({
-                          ...prev,
-                          [g]: {
-                            ...prev[g],
-                            [squad.id]: {
-                              ...prev[g][squad.id],
-                              vittoria: e.target.checked
-                            }
-                          }
-                        }));
-                        calcolaPunteggio(g, squad.id);
-                      }}
-                    />
-                  </td>
+                    <td style={{ textAlign: "center" }}>
+                      <label style={{ marginRight: 8 }}>
+                        <input
+                          type="checkbox"
+                          checked={row ? row.vittoria : false}
+                          onChange={(e) => updateField(g, s.id, "vittoria", e.target.checked)}
+                        /> Vittoria
+                      </label>
+                      <label>
+                        <input
+                          type="checkbox"
+                          checked={row ? row.pareggio : false}
+                          onChange={(e) => updateField(g, s.id, "pareggio", e.target.checked)}
+                        /> Pareggio
+                      </label>
+                    </td>
 
-                  {/* Evento speciale */}
-                  <td>
-                    <input
-                      type="checkbox"
-                      checked={giornataData[g][squad.id].evento_speciale}
-                      onChange={(e) => {
-                        setGiornataData((prev) => ({
-                          ...prev,
-                          [g]: {
-                            ...prev[g],
-                            [squad.id]: {
-                              ...prev[g][squad.id],
-                              evento_speciale: e.target.checked
-                            }
-                          }
-                        }));
-                        calcolaPunteggio(g, squad.id);
-                      }}
-                    />
-                  </td>
+                    <td>
+                      {renderTrioCell(g, s)}
+                    </td>
 
-                  {/* Voti bassi */}
-                  <td>
-                    <input
-                      type="checkbox"
-                      checked={giornataData[g][squad.id].voti_bassi}
-                      onChange={(e) => {
-                        setGiornataData((prev) => ({
-                          ...prev,
-                          [g]: {
-                            ...prev[g],
-                            [squad.id]: {
-                              ...prev[g][squad.id],
-                              voti_bassi: e.target.checked
-                            }
-                          }
-                        }));
-                        calcolaPunteggio(g, squad.id);
-                      }}
-                    />
-                  </td>
-
-                  {/* Punteggio */}
-                  <td>{punteggi[g][squad.id]}</td>
-
-                  {/* Salva */}
-                  <td>
-                    <button onClick={() => salvaParziale(g, squad.id)}>
-                      Salva
-                    </button>
-                  </td>
-                </tr>
-              ))}
+                    <td style={{ textAlign: "center" }}>
+                      <button onClick={() => salvaParziale(g, s.id)}>Salva</button>
+                    </td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
+
+          <div style={{ marginTop: 8 }}>
+            <strong>Totali parziali giornata {g}:</strong>
+            <div>
+              {squads.map((s) => (
+                <span key={s.id} style={{ marginRight: 12 }}>
+                  {s.name}: {(punteggi[g] && punteggi[g][s.id]) ?? 0}
+                </span>
+              ))}
+            </div>
+          </div>
         </div>
       ))}
 
-      {/* CALCOLO FINALE */}
       {turno && (
-        <button
-          onClick={calcolaFinale}
-          style={{
-            marginTop: "40px",
-            padding: "10px 20px",
-            fontSize: "16px"
-          }}
-        >
-          Calcola Missioni del Turno
-        </button>
+        <div style={{ marginTop: 30 }}>
+          <button onClick={calcolaFinale} style={{ padding: "10px 20px", fontSize: 16 }}>
+            Calcola Missioni del Turno
+          </button>
+        </div>
       )}
     </div>
   );
