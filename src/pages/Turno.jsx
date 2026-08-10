@@ -1,13 +1,7 @@
-// pages/turno.jsx
-import React, { useState, useMemo } from "react";
-
-/**
- * Pagina Turno (Next.js pages)
- * - 7 turni
- * - ogni turno ha 3 giornate
- * - missionePersonale spunta automaticamente missionePersonaleX
- * - missionePersonaleX conta +1 solo se golParata && votiBassi nella stessa giornata
- */
+// src/pages/Turno.jsx
+import React, { useEffect, useState } from "react";
+import Turno from "../components/Turno";
+import { createBrowserSupabase } from "../utils/supabase/client"; // adatta il path se diverso
 
 const TEAM_NAMES = [
   "Iron Team",
@@ -32,67 +26,81 @@ const makeEmptyGiornata = () => ({
 });
 
 const makePerTurni = () =>
-  Array.from({ length: 7 }, () => ({
-    giornate: [makeEmptyGiornata(), makeEmptyGiornata(), makeEmptyGiornata()],
-  }));
+  Array.from({ length: 7 }, () => ({ giornate: [makeEmptyGiornata(), makeEmptyGiornata(), makeEmptyGiornata()] }));
 
 export default function TurnoPage() {
-  const [selectedTurno, setSelectedTurno] = useState(1); // 1..7
+  const supabase = (() => {
+    try {
+      return createBrowserSupabase();
+    } catch {
+      return null;
+    }
+  })();
+
+  const [selectedTurno, setSelectedTurno] = useState(1);
   const [teams, setTeams] = useState(() =>
-    TEAM_NAMES.map((nome, idx) => ({
-      id: `team-${idx}`,
-      nome,
-      perTurni: makePerTurni(),
-    }))
+    TEAM_NAMES.map((nome, idx) => ({ id: `team-${idx + 1}`, nome, perTurni: makePerTurni() }))
   );
+  const [loading, setLoading] = useState(false);
+  const [remoteTurns, setRemoteTurns] = useState([]);
 
-  // Toggle generico per campo specifico (teamId, turnoIndex 0-based, giornataIndex 0..2, field)
-  function toggleField(teamId, turnoIndex, giornataIndex, field) {
-    setTeams(prev =>
-      prev.map(t => {
-        if (t.id !== teamId) return t;
-        const perTurni = t.perTurni.map((turno, ti) => {
-          if (ti !== turnoIndex) return turno;
-          const giornate = turno.giornate.map((g, gi) => {
-            if (gi !== giornataIndex) return g;
-            const updated = { ...g, [field]: !g[field] };
+  useEffect(() => {
+    if (!supabase) return;
+    let mounted = true;
+    setLoading(true);
+    supabase
+      .from("league_turns")
+      .select("*")
+      .order("id", { ascending: false })
+      .limit(5)
+      .then(({ data, error }) => {
+        if (!mounted) return;
+        setLoading(false);
+        if (error) {
+          console.warn("Supabase read warning:", error);
+          return;
+        }
+        setRemoteTurns(data || []);
+      });
+    return () => {
+      mounted = false;
+    };
+  }, [supabase]);
 
-            // Regola: se spunti missionePersonale -> imposta missionePersonaleX true
-            if (field === "missionePersonale" && updated.missionePersonale) {
-              updated.missionePersonaleX = true;
-            }
-            // se deselezioni missionePersonale -> togli missionePersonaleX
-            if (field === "missionePersonale" && !updated.missionePersonale) {
-              updated.missionePersonaleX = false;
-            }
+  // clone helper per aggiornamenti immutabili
+  const cloneTeams = prev =>
+    prev.map(t => ({ ...t, perTurni: t.perTurni.map(turno => ({ giornate: turno.giornate.map(g => ({ ...g })) })) }));
 
-            // Gestione vittoria/pareggio mutuamente esclusivi
-            if (field === "vittoria" && updated.vittoria) {
-              updated.pareggio = false;
-            }
-            if (field === "pareggio" && updated.pareggio) {
-              updated.vittoria = false;
-            }
+  function onToggleField(teamId, turnoIndex, giornataIndex, field) {
+    setTeams(prev => {
+      const copy = cloneTeams(prev);
+      const team = copy.find(x => x.id === teamId);
+      if (!team) return prev;
+      const g = team.perTurni[turnoIndex].giornate[giornataIndex];
 
-            return updated;
-          });
-          return { ...turno, giornate };
-        });
-        return { ...t, perTurni };
-      })
-    );
+      if (field === "vittoria") {
+        g.vittoria = !g.vittoria;
+        if (g.vittoria) g.pareggio = false;
+      } else if (field === "pareggio") {
+        g.pareggio = !g.pareggio;
+        if (g.pareggio) g.vittoria = false;
+      } else {
+        g[field] = !g[field];
+      }
+
+      if (field === "missionePersonale") {
+        if (g.missionePersonale) g.missionePersonaleX = true;
+        else g.missionePersonaleX = false;
+      }
+
+      return copy;
+    });
   }
 
-  // Se vuoi permettere toggle manuale di missionePersonaleX (visivo)
-  function toggleMissionePersonaleX(teamId, turnoIndex, giornataIndex) {
-    toggleField(teamId, turnoIndex, giornataIndex, "missionePersonaleX");
-  }
-
-  // Calcolo punteggio per una singola giornata
+  // calcolo punteggio per giornata (stessa logica del componente)
   function computeGiornataScore(g) {
     let s = 0;
     if (g.missionePersonale) s += 0.5;
-    // missionePersonaleX conta solo se spuntata e golParata && votiBassi
     if (g.missionePersonaleX && g.golParata && g.votiBassi) s += 1;
     if (g.missioneComune) s += 1;
     if (g.vittoria) s += 3;
@@ -101,166 +109,69 @@ export default function TurnoPage() {
     return s;
   }
 
-  // Totali per il turno selezionato (memoizzato)
-  const turnoIdx = selectedTurno - 1;
-  const totalsByTeam = useMemo(() => {
-    return teams.map(t => {
-      const turno = t.perTurni[turnoIdx];
-      const totale = turno.giornate.reduce((acc, g) => acc + computeGiornataScore(g), 0);
-      return { id: t.id, nome: t.nome, totale, turno };
-    });
-  }, [teams, turnoIdx]);
+  async function onSave() {
+    if (!supabase) {
+      alert("Supabase client non disponibile. Salvataggio locale solo.");
+      console.log("Stato teams:", teams);
+      return;
+    }
 
-  function saveTotals() {
-    const payload = teams.map(t => {
-      const turno = t.perTurni[turnoIdx];
-      return {
-        id: t.id,
-        nome: t.nome,
-        giornate: turno.giornate,
-        totale: turno.giornate.reduce((acc, g) => acc + computeGiornataScore(g), 0),
-      };
-    });
-    console.log("Salva turno", selectedTurno, payload);
-    // TODO: integra con Supabase / backend
+    setLoading(true);
+    try {
+      const turnoIdx = selectedTurno - 1;
+      // Mappa payload: qui esempio che salva un record per ogni squadra come home (adatta ai tuoi id reali)
+      const payload = teams.map((t, idx) => {
+        const turno = t.perTurni[turnoIdx];
+        return {
+          turn_number: selectedTurno,
+          team_home_id: idx + 1, // sostituisci con id reali
+          team_away_id: null,
+          matchday_1_points_home: computeGiornataScore(turno.giornate[0]),
+          matchday_2_points_home: computeGiornataScore(turno.giornate[1]),
+          matchday_3_points_home: computeGiornataScore(turno.giornate[2]),
+          total_home: turno.giornate.reduce((acc, g) => acc + computeGiornataScore(g), 0),
+        };
+      });
+
+      const { data, error } = await supabase.from("league_turns").insert(payload);
+
+      if (error) {
+        console.error("Errore insert Supabase:", error);
+        alert("Errore salvataggio: vedi console");
+      } else {
+        console.log("Salvataggio riuscito:", data);
+        alert("Salvataggio riuscito");
+      }
+    } finally {
+      setLoading(false);
+    }
   }
 
   return (
-    <div style={{ padding: 16, fontFamily: "Segoe UI, Arial, sans-serif" }}>
-      <h2>Turno {selectedTurno}</h2>
-
+    <div style={{ padding: 16 }}>
       <div style={{ marginBottom: 12, display: "flex", gap: 12, alignItems: "center" }}>
         <label>
           Seleziona turno:
-          <select
-            value={selectedTurno}
-            onChange={e => setSelectedTurno(Number(e.target.value))}
-            style={{ marginLeft: 8 }}
-          >
-            {Array.from({ length: 7 }, (_, i) => (
-              <option key={i} value={i + 1}>
-                {i + 1}
-              </option>
-            ))}
+          <select value={selectedTurno} onChange={e => setSelectedTurno(Number(e.target.value))} style={{ marginLeft: 8 }}>
+            {Array.from({ length: 7 }, (_, i) => <option key={i} value={i + 1}>{i + 1}</option>)}
           </select>
         </label>
-
-        <button onClick={saveTotals}>Salva Totale Turno</button>
       </div>
 
-      <table style={{ width: "100%", borderCollapse: "collapse" }}>
-        <thead>
-          <tr style={{ textAlign: "left", borderBottom: "2px solid #ccc" }}>
-            <th style={{ width: "18%", padding: 8 }}>Squadra</th>
-            <th style={{ width: "24%", textAlign: "center", padding: 8 }}>Giornata 1</th>
-            <th style={{ width: "24%", textAlign: "center", padding: 8 }}>Giornata 2</th>
-            <th style={{ width: "24%", textAlign: "center", padding: 8 }}>Giornata 3</th>
-            <th style={{ width: "10%", textAlign: "center", padding: 8 }}>Punteggio Totale</th>
-          </tr>
-        </thead>
+      <Turno
+        teams={teams}
+        selectedTurno={selectedTurno}
+        onToggleField={onToggleField}
+        onSave={onSave}
+        loading={loading}
+      />
 
-        <tbody>
-          {teams.map((t, ti) => {
-            const turno = t.perTurni[turnoIdx];
-            const totale = turno.giornate.reduce((acc, g) => acc + computeGiornataScore(g), 0);
-
-            return (
-              <tr key={t.id} style={{ borderTop: "1px solid #eee" }}>
-                <td style={{ padding: "8px 6px" }}>{t.nome}</td>
-
-                {turno.giornate.map((g, gi) => (
-                  <td key={gi} style={{ padding: 8, verticalAlign: "top" }}>
-                    <div style={{ display: "flex", flexDirection: "column", gap: 6, alignItems: "center" }}>
-                      <label style={{ fontSize: 12 }}>
-                        <input
-                          type="checkbox"
-                          checked={g.missionePersonale}
-                          onChange={() => toggleField(t.id, turnoIdx, gi, "missionePersonale")}
-                        />{" "}
-                        Missione Personale (+0.5)
-                      </label>
-
-                      <label style={{ fontSize: 12 }}>
-                        <input
-                          type="checkbox"
-                          checked={g.missionePersonaleX}
-                          onChange={() => toggleMissionePersonaleX(t.id, turnoIdx, gi)}
-                        />{" "}
-                        Missione Personale X
-                      </label>
-
-                      <div style={{ fontSize: 11, color: "#555", textAlign: "center" }}>
-                        Conta +1 solo se Gol/Parata + Voto 5
-                      </div>
-
-                      <label style={{ fontSize: 12 }}>
-                        <input
-                          type="checkbox"
-                          checked={g.golParata}
-                          onChange={() => toggleField(t.id, turnoIdx, gi, "golParata")}
-                        />{" "}
-                        Gol/Parata
-                      </label>
-
-                      <label style={{ fontSize: 12 }}>
-                        <input
-                          type="checkbox"
-                          checked={g.votiBassi}
-                          onChange={() => toggleField(t.id, turnoIdx, gi, "votiBassi")}
-                        />{" "}
-                        Voto 5 (VotiBassi)
-                      </label>
-
-                      <label style={{ fontSize: 12 }}>
-                        <input
-                          type="checkbox"
-                          checked={g.missioneComune}
-                          onChange={() => toggleField(t.id, turnoIdx, gi, "missioneComune")}
-                        />{" "}
-                        Missione Comune (+1)
-                      </label>
-
-                      <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-                        <label style={{ fontSize: 12 }}>
-                          <input
-                            type="radio"
-                            name={`esito-${t.id}-${turnoIdx}-${gi}`}
-                            checked={g.vittoria}
-                            onChange={() => toggleField(t.id, turnoIdx, gi, "vittoria")}
-                          />{" "}
-                          V
-                        </label>
-                        <label style={{ fontSize: 12 }}>
-                          <input
-                            type="radio"
-                            name={`esito-${t.id}-${turnoIdx}-${gi}`}
-                            checked={g.pareggio}
-                            onChange={() => toggleField(t.id, turnoIdx, gi, "pareggio")}
-                          />{" "}
-                          P
-                        </label>
-                      </div>
-
-                      <label style={{ fontSize: 12 }}>
-                        <input
-                          type="checkbox"
-                          checked={g.missioneLeggendaria}
-                          onChange={() => toggleField(t.id, turnoIdx, gi, "missioneLeggendaria")}
-                        />{" "}
-                        Missione Leggendaria (+1)
-                      </label>
-
-                      <div style={{ fontSize: 12, fontWeight: 600 }}>Parziale: {computeGiornataScore(g)}</div>
-                    </div>
-                  </td>
-                ))}
-
-                <td style={{ textAlign: "center", fontWeight: "bold" }}>{totale}</td>
-              </tr>
-            );
-          })}
-        </tbody>
-      </table>
+      <div style={{ marginTop: 16 }}>
+        <h4>Ultimi turni dal DB (debug)</h4>
+        <pre style={{ maxHeight: 200, overflow: "auto", background: "#f6f6f6", padding: 8 }}>
+          {JSON.stringify(remoteTurns, null, 2)}
+        </pre>
+      </div>
     </div>
   );
 }
