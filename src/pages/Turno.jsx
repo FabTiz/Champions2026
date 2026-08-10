@@ -2,6 +2,7 @@
 import React, { useEffect, useState } from "react";
 import Turno from "../components/Turno";
 import { supabase } from "../supabaseClient";
+import { Link } from "react-router-dom";
 
 const TEAM_NAMES = [
   "Iron Team",
@@ -265,6 +266,10 @@ export default function TurnoPage() {
         {saveMessage ? <span style={{ fontSize: 13, color: "#555" }}>{saveMessage}</span> : null}
       </div>
 
+      <Link to="/" style={{ display: "inline-block", marginBottom: 16 }}>
+        ⬅ Torna alla Home
+      </Link>
+
       <Turno
         teams={teams}
         selectedTurno={selectedTurno}
@@ -278,9 +283,13 @@ export default function TurnoPage() {
 
       <div style={{ marginTop: 16 }}>
         <h4>Ultimi turni dal DB (debug)</h4>
-        <pre style={{ maxHeight: 200, overflow: "auto", background: "#f6f6f6", padding: 8 }}>
-          {JSON.stringify(remoteTurns, null, 2)}
-        </pre>
+        {remoteTurns.length === 0 ? (
+          <p style={{ background: "#f6f6f6", padding: 8 }}>Nessun turno salvato su Supabase. Quando salvi il turno completo, qui compariranno gli ultimi record.</p>
+        ) : (
+          <pre style={{ maxHeight: 200, overflow: "auto", background: "#f6f6f6", padding: 8 }}>
+            {JSON.stringify(remoteTurns, null, 2)}
+          </pre>
+        )}
       </div>
     </div>
   );

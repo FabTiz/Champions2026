@@ -24,6 +24,10 @@ export default function Turno({
 }) {
   const turnoIdx = selectedTurno - 1;
 
+  function isLeggendaria(g) {
+    return !!(g.missionePersonaleCompletata && g.missionePersonaleX && g.golParata && g.votiBassi);
+  }
+
   function computeGiornataScore(g) {
     let s = 0;
     if (g.missionePersonale && g.missionePersonaleCompletata) s += 1;
@@ -184,6 +188,75 @@ export default function Turno({
     );
   }
 
+  function renderClassificaBlock(giornataIndex) {
+    const classifica = teams
+      .map(team => {
+        const teamTurno = team.perTurni?.[turnoIdx];
+        const giornate = teamTurno?.giornate?.slice(0, giornataIndex + 1) || [];
+
+        const stats = giornate.reduce(
+          (acc, g) => {
+            acc.G += g.missionePersonale ? 1 : 0;
+            acc.Vit += g.vittoria ? 1 : 0;
+            acc.Par += g.pareggio ? 1 : 0;
+            acc.MP += g.missionePersonaleCompletata ? 1 : 0;
+            acc.MC += g.missioneComune ? 1 : 0;
+            acc.ML += isLeggendaria(g) ? 1 : 0;
+            acc.Punti += computeGiornataScore(g);
+            return acc;
+          },
+          { G: 0, Vit: 0, Par: 0, MP: 0, MC: 0, ML: 0, Punti: 0 }
+        );
+
+        return {
+          squadra: team.nome,
+          ...stats,
+        };
+      })
+      .sort((a, b) => {
+        if (b.Punti !== a.Punti) return b.Punti - a.Punti;
+        if (b.Vit !== a.Vit) return b.Vit - a.Vit;
+        if (b.MP !== a.MP) return b.MP - a.MP;
+        return a.squadra.localeCompare(b.squadra);
+      });
+
+    return (
+      <div style={{ margin: "0 0 28px" }}>
+        <h3 style={{ margin: "12px 0 8px" }}>Classifica {giornataIndex + 1}a Giornata</h3>
+        <table style={{ width: "100%", borderCollapse: "collapse", tableLayout: "fixed" }}>
+          <thead>
+            <tr>
+              <th style={{ ...cellHeader, width: "6%" }}>Pos.</th>
+              <th style={{ ...cellHeader, width: "20%", textAlign: "left" }}>Squadra</th>
+              <th style={{ ...cellHeader, width: "6%" }}>G</th>
+              <th style={{ ...cellHeader, width: "6%" }}>Vit</th>
+              <th style={{ ...cellHeader, width: "6%" }}>Par</th>
+              <th style={{ ...cellHeader, width: "6%" }}>MP</th>
+              <th style={{ ...cellHeader, width: "6%" }}>MC</th>
+              <th style={{ ...cellHeader, width: "6%" }}>ML</th>
+              <th style={{ ...cellHeader, width: "6%" }}>Punti</th>
+            </tr>
+          </thead>
+          <tbody>
+            {classifica.map((row, index) => (
+              <tr key={`${row.squadra}-${giornataIndex}`}>
+                <td style={cellCenter}>{index + 1}</td>
+                <td style={{ ...cellBase, fontWeight: 500 }}>{row.squadra}</td>
+                <td style={cellCenter}>{row.G}</td>
+                <td style={cellCenter}>{row.Vit}</td>
+                <td style={cellCenter}>{row.Par}</td>
+                <td style={cellCenter}>{row.MP}</td>
+                <td style={cellCenter}>{row.MC}</td>
+                <td style={cellCenter}>{row.ML}</td>
+                <td style={{ ...cellCenter, fontWeight: 700 }}>{row.Punti}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    );
+  }
+
   return (
     <div style={{ padding: 16, fontFamily: "Segoe UI, Arial, sans-serif" }}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
@@ -210,6 +283,10 @@ export default function Turno({
       {renderGiornataBlock(0)}
       {renderGiornataBlock(1)}
       {renderGiornataBlock(2)}
+
+      {renderClassificaBlock(0)}
+      {renderClassificaBlock(1)}
+      {renderClassificaBlock(2)}
     </div>
   );
 }
