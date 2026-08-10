@@ -33,6 +33,12 @@ export default function Turno({
   }
 
   function renderGiornataBlock(giornataIndex) {
+    const totaleGiornata = teams.reduce((acc, team) => {
+      const teamTurno = team.perTurni?.[turnoIdx];
+      const giornata = teamTurno?.giornate?.[giornataIndex];
+      return acc + (giornata ? computeGiornataScore(giornata) : 0);
+    }, 0);
+
     return (
       <div key={giornataIndex} style={{ marginBottom: 20 }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", margin: "10px 0 6px" }}>
@@ -59,7 +65,8 @@ export default function Turno({
 
           <tbody>
             {teams.map(team => {
-              const g = team.turno?.giornate?.[giornataIndex];
+              const teamTurno = team.perTurni?.[turnoIdx];
+              const g = teamTurno?.giornate?.[giornataIndex];
               if (!g) return null;
 
               return (
@@ -156,6 +163,12 @@ export default function Turno({
                 </tr>
               );
             })}
+            <tr>
+              <td style={{ ...cellBase, fontWeight: 700 }}>Totale giornata</td>
+              <td style={cellCenter} colSpan={7} />
+              <td style={{ ...cellCenter, fontWeight: 700 }}>{totaleGiornata}</td>
+              <td style={cellCenter} />
+            </tr>
           </tbody>
         </table>
       </div>
