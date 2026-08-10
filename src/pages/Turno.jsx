@@ -1,12 +1,12 @@
+// pages/turno.jsx
 import React, { useState, useMemo } from "react";
 
 /**
- * Turno.jsx
+ * Pagina Turno (Next.js pages)
  * - 7 turni
  * - ogni turno ha 3 giornate
- * - per ogni giornata: missionePersonale, missionePersonaleX (visiva), golParata, votiBassi, missioneComune, vittoria/pareggio, missioneLeggendaria
- * - missionePersonaleX viene spuntata automaticamente quando missionePersonale viene spuntata
- * - missionePersonaleX conta +1 solo se golParata && votiBassi sono true nella stessa giornata
+ * - missionePersonale spunta automaticamente missionePersonaleX
+ * - missionePersonaleX conta +1 solo se golParata && votiBassi nella stessa giornata
  */
 
 const TEAM_NAMES = [
@@ -36,7 +36,7 @@ const makePerTurni = () =>
     giornate: [makeEmptyGiornata(), makeEmptyGiornata(), makeEmptyGiornata()],
   }));
 
-export default function Turno() {
+export default function TurnoPage() {
   const [selectedTurno, setSelectedTurno] = useState(1); // 1..7
   const [teams, setTeams] = useState(() =>
     TEAM_NAMES.map((nome, idx) => ({
@@ -46,7 +46,7 @@ export default function Turno() {
     }))
   );
 
-  // Toggle generico per una specifica squadra, turno (1-based), giornata (0..2), campo
+  // Toggle generico per campo specifico (teamId, turnoIndex 0-based, giornataIndex 0..2, field)
   function toggleField(teamId, turnoIndex, giornataIndex, field) {
     setTeams(prev =>
       prev.map(t => {
@@ -66,7 +66,7 @@ export default function Turno() {
               updated.missionePersonaleX = false;
             }
 
-            // Se imposti vittoria, togli pareggio; se imposti pareggio, togli vittoria
+            // Gestione vittoria/pareggio mutuamente esclusivi
             if (field === "vittoria" && updated.vittoria) {
               updated.pareggio = false;
             }
@@ -83,13 +83,12 @@ export default function Turno() {
     );
   }
 
-  // Se vuoi impedire toggle manuale di missionePersonaleX, usa questa funzione per ignorare il toggle.
+  // Se vuoi permettere toggle manuale di missionePersonaleX (visivo)
   function toggleMissionePersonaleX(teamId, turnoIndex, giornataIndex) {
-    // qui permettiamo il toggle manuale (ma il conteggio resta condizionale)
     toggleField(teamId, turnoIndex, giornataIndex, "missionePersonaleX");
   }
 
-  // Calcola punteggio per una singola giornata
+  // Calcolo punteggio per una singola giornata
   function computeGiornataScore(g) {
     let s = 0;
     if (g.missionePersonale) s += 0.5;
@@ -102,19 +101,17 @@ export default function Turno() {
     return s;
   }
 
-  // Calcola punteggio totale per il team nel turno selezionato (somma delle 3 giornate)
+  // Totali per il turno selezionato (memoizzato)
+  const turnoIdx = selectedTurno - 1;
   const totalsByTeam = useMemo(() => {
-    const turnoIdx = selectedTurno - 1;
     return teams.map(t => {
       const turno = t.perTurni[turnoIdx];
       const totale = turno.giornate.reduce((acc, g) => acc + computeGiornataScore(g), 0);
       return { id: t.id, nome: t.nome, totale, turno };
     });
-  }, [teams, selectedTurno]);
+  }, [teams, turnoIdx]);
 
   function saveTotals() {
-    // Esempio payload: salva solo il turno selezionato
-    const turnoIdx = selectedTurno - 1;
     const payload = teams.map(t => {
       const turno = t.perTurni[turnoIdx];
       return {
@@ -130,7 +127,7 @@ export default function Turno() {
 
   return (
     <div style={{ padding: 16, fontFamily: "Segoe UI, Arial, sans-serif" }}>
-      <h3>Turno</h3>
+      <h2>Turno {selectedTurno}</h2>
 
       <div style={{ marginBottom: 12, display: "flex", gap: 12, alignItems: "center" }}>
         <label>
@@ -154,20 +151,16 @@ export default function Turno() {
       <table style={{ width: "100%", borderCollapse: "collapse" }}>
         <thead>
           <tr style={{ textAlign: "left", borderBottom: "2px solid #ccc" }}>
-            <th style={{ width: "18%" }}>Squadra</th>
-
-            {/* Tre colonne giornate */}
-            <th style={{ width: "24%", textAlign: "center" }}>Giornata 1</th>
-            <th style={{ width: "24%", textAlign: "center" }}>Giornata 2</th>
-            <th style={{ width: "24%", textAlign: "center" }}>Giornata 3</th>
-
-            <th style={{ width: "10%", textAlign: "center" }}>Punteggio Totale</th>
+            <th style={{ width: "18%", padding: 8 }}>Squadra</th>
+            <th style={{ width: "24%", textAlign: "center", padding: 8 }}>Giornata 1</th>
+            <th style={{ width: "24%", textAlign: "center", padding: 8 }}>Giornata 2</th>
+            <th style={{ width: "24%", textAlign: "center", padding: 8 }}>Giornata 3</th>
+            <th style={{ width: "10%", textAlign: "center", padding: 8 }}>Punteggio Totale</th>
           </tr>
         </thead>
 
         <tbody>
           {teams.map((t, ti) => {
-            const turnoIdx = selectedTurno - 1;
             const turno = t.perTurni[turnoIdx];
             const totale = turno.giornate.reduce((acc, g) => acc + computeGiornataScore(g), 0);
 
@@ -257,9 +250,7 @@ export default function Turno() {
                         Missione Leggendaria (+1)
                       </label>
 
-                      <div style={{ fontSize: 12, fontWeight: 600 }}>
-                        Parziale: {computeGiornataScore(g)}
-                      </div>
+                      <div style={{ fontSize: 12, fontWeight: 600 }}>Parziale: {computeGiornataScore(g)}</div>
                     </div>
                   </td>
                 ))}
