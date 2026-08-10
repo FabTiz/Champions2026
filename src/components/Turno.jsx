@@ -33,6 +33,7 @@ export default function Turno({
   }
 
   function renderGiornataBlock(giornataIndex) {
+    const giornataNumero = turnoIdx * 3 + giornataIndex + 1;
     const totaleGiornata = teams.reduce((acc, team) => {
       const teamTurno = team.perTurni?.[turnoIdx];
       const giornata = teamTurno?.giornate?.[giornataIndex];
@@ -42,7 +43,7 @@ export default function Turno({
     return (
       <div key={giornataIndex} style={{ marginBottom: 20 }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", margin: "10px 0 6px" }}>
-          <h3 style={{ margin: 0 }}>{giornataIndex + 1}a giornata</h3>
+          <h3 style={{ margin: 0 }}>{giornataNumero}a giornata</h3>
           <button type="button" onClick={() => onSaveGiornata(giornataIndex)} style={{ padding: "6px 10px" }}>
             Salva parziale giornata
           </button>
@@ -178,7 +179,12 @@ export default function Turno({
   return (
     <div style={{ padding: 16, fontFamily: "Segoe UI, Arial, sans-serif" }}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
-        <h2 style={{ margin: 0 }}>Turno {selectedTurno}</h2>
+        <div>
+          <h2 style={{ margin: 0 }}>Turno {selectedTurno}</h2>
+          <div style={{ marginTop: 4, color: "#666" }}>
+            Giornate {turnoIdx * 3 + 1}-{turnoIdx * 3 + 3}
+          </div>
+        </div>
         <div>
           <button onClick={onSave} disabled={loading} style={{ padding: "6px 12px" }}>
             {loading ? "Salvataggio..." : "Salva Totale Turno"}

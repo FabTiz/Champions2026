@@ -26,7 +26,7 @@ const makeEmptyGiornata = () => ({
 });
 
 const makePerTurni = () =>
-  Array.from({ length: 7 }, () => ({ giornate: [makeEmptyGiornata(), makeEmptyGiornata(), makeEmptyGiornata()] }));
+  Array.from({ length: 10 }, () => ({ giornate: [makeEmptyGiornata(), makeEmptyGiornata(), makeEmptyGiornata()] }));
 
 export default function TurnoPage() {
   const [selectedTurno, setSelectedTurno] = useState(1);
@@ -209,7 +209,7 @@ export default function TurnoPage() {
         <label>
           Seleziona turno:
           <select value={selectedTurno} onChange={e => setSelectedTurno(Number(e.target.value))} style={{ marginLeft: 8 }}>
-            {Array.from({ length: 7 }, (_, i) => <option key={i} value={i + 1}>{i + 1}</option>)}
+            {Array.from({ length: 10 }, (_, i) => <option key={i} value={i + 1}>{i + 1}</option>)}
           </select>
         </label>
         {saveMessage ? <span style={{ fontSize: 13, color: "#555" }}>{saveMessage}</span> : null}
