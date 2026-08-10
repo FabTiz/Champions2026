@@ -112,12 +112,13 @@ export default function TurnoPage() {
       if (field === "missionePersonale") {
         g.missionePersonale = typeof forcedValue === "string" ? forcedValue : "";
         g.missionePersonaleCompletata = false;
-        g.missionePersonaleX = !!g.missionePersonale;
+        g.missionePersonaleX = false;
         return copy;
       }
 
       if (field === "missionePersonaleCompletata") {
         g.missionePersonaleCompletata = typeof forcedValue === "boolean" ? forcedValue : !g.missionePersonaleCompletata;
+        g.missionePersonaleX = !!g.missionePersonaleCompletata;
         return copy;
       }
 
@@ -149,7 +150,7 @@ export default function TurnoPage() {
   // calcolo punteggio per giornata (stessa logica del componente)
   function computeGiornataScore(g) {
     let s = 0;
-    if (g.missionePersonale && g.missionePersonaleCompletata) s += 1;
+    if (g.missionePersonaleCompletata) s += 1;
     if (g.missionePersonaleX && g.golParata && g.votiBassi) s += 1;
     if (g.missioneComune) s += 0.5;
     if (g.vittoria) s += 3;
@@ -160,6 +161,26 @@ export default function TurnoPage() {
   function saveGiornataDraft(giornataIndex) {
     persistDraft(selectedTurno, giornataIndex, teams);
     setSaveMessage(`Bozza salvata per turno ${selectedTurno}, giornata ${giornataIndex + 1}.`);
+  }
+
+  function resetGiornata(giornataIndex) {
+    setTeams(prev => {
+      const copy = cloneTeams(prev);
+      copy.forEach(team => {
+        const g = team.perTurni[selectedTurno - 1]?.giornate?.[giornataIndex];
+        if (!g) return;
+        g.missionePersonale = "";
+        g.missionePersonaleCompletata = false;
+        g.missionePersonaleX = false;
+        g.golParata = false;
+        g.votiBassi = false;
+        g.missioneComune = false;
+        g.vittoria = false;
+        g.pareggio = false;
+      });
+      return copy;
+    });
+    setSaveMessage(`Giornata ${giornataIndex + 1} resettata.`);
   }
 
   async function onSave() {
@@ -220,6 +241,7 @@ export default function TurnoPage() {
         selectedTurno={selectedTurno}
         onToggleField={onToggleField}
         onSaveGiornata={saveGiornataDraft}
+        onResetGiornata={resetGiornata}
         onSave={onSave}
         loading={loading}
       />

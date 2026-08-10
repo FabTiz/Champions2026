@@ -17,6 +17,7 @@ export default function Turno({
   selectedTurno = 1,
   onToggleField = () => {},
   onSaveGiornata = () => {},
+  onResetGiornata = () => {},
   onSave = () => {},
   loading = false,
 }) {
@@ -44,9 +45,14 @@ export default function Turno({
       <div key={giornataIndex} style={{ marginBottom: 20 }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", margin: "10px 0 6px" }}>
           <h3 style={{ margin: 0 }}>{giornataNumero}a giornata</h3>
-          <button type="button" onClick={() => onSaveGiornata(giornataIndex)} style={{ padding: "6px 10px" }}>
-            Salva parziale giornata
-          </button>
+          <div style={{ display: "flex", gap: 8 }}>
+            <button type="button" onClick={() => onSaveGiornata(giornataIndex)} style={{ padding: "6px 10px" }}>
+              Salva parziale giornata
+            </button>
+            <button type="button" onClick={() => onResetGiornata(giornataIndex)} style={{ padding: "6px 10px" }}>
+              Reset giornata
+            </button>
+          </div>
         </div>
         <table style={{ width: "100%", borderCollapse: "collapse", tableLayout: "fixed" }}>
           <thead>
@@ -96,6 +102,7 @@ export default function Turno({
                       checked={!!g.missionePersonaleCompletata}
                       onChange={() => onToggleField(team.id, turnoIdx, giornataIndex, "missionePersonaleCompletata")}
                       disabled={!g.missionePersonale}
+                      title={g.missionePersonale ? "Spunta se la missione scelta è stata centrata" : "Scegli prima una missione"}
                     />
                   </td>
 
