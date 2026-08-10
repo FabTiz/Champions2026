@@ -15,14 +15,14 @@ const TEAM_NAMES = [
 ];
 
 const makeEmptyGiornata = () => ({
-  missionePersonale: false,
+  missionePersonale: "",
+  missionePersonaleCompletata: false,
   missionePersonaleX: false,
   golParata: false,
   votiBassi: false,
   missioneComune: false,
   vittoria: false,
   pareggio: false,
-  missioneLeggendaria: false,
 });
 
 const makePerTurni = () =>
@@ -35,6 +35,34 @@ export default function TurnoPage() {
   );
   const [loading, setLoading] = useState(false);
   const [remoteTurns, setRemoteTurns] = useState([]);
+  const [saveMessage, setSaveMessage] = useState("");
+
+  const draftStorageKey = "champions-turno-drafts-v1";
+
+  function loadDrafts() {
+    try {
+      const raw = localStorage.getItem(draftStorageKey);
+      return raw ? JSON.parse(raw) : {};
+    } catch {
+      return {};
+    }
+  }
+
+  function persistDraft(turnNumber, giornataIndex, snapshotTeams) {
+    const drafts = loadDrafts();
+    drafts[turnNumber] = {
+      turnNumber,
+      giornataIndex,
+      savedAt: new Date().toISOString(),
+      teams: snapshotTeams,
+    };
+    localStorage.setItem(draftStorageKey, JSON.stringify(drafts));
+  }
+
+  function readDraft(turnNumber) {
+    const drafts = loadDrafts();
+    return drafts[String(turnNumber)] || drafts[turnNumber] || null;
+  }
 
   useEffect(() => {
     if (!supabase) return;
@@ -59,6 +87,17 @@ export default function TurnoPage() {
     };
   }, [supabase]);
 
+  useEffect(() => {
+    const draft = readDraft(selectedTurno);
+    if (draft?.teams) {
+      setTeams(draft.teams);
+      setSaveMessage(`Bozza turno ${selectedTurno} caricata.`);
+    } else {
+      setSaveMessage("");
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedTurno]);
+
   // clone helper per aggiornamenti immutabili
   const cloneTeams = prev =>
     prev.map(t => ({ ...t, perTurni: t.perTurni.map(turno => ({ giornate: turno.giornate.map(g => ({ ...g })) })) }));
@@ -70,19 +109,37 @@ export default function TurnoPage() {
       if (!team) return prev;
       const g = team.perTurni[turnoIndex].giornate[giornataIndex];
 
+      if (field === "missionePersonale") {
+        g.missionePersonale = typeof forcedValue === "string" ? forcedValue : "";
+        g.missionePersonaleCompletata = false;
+        g.missionePersonaleX = !!g.missionePersonale;
+        return copy;
+      }
+
+      if (field === "missionePersonaleCompletata") {
+        g.missionePersonaleCompletata = typeof forcedValue === "boolean" ? forcedValue : !g.missionePersonaleCompletata;
+        return copy;
+      }
+
+      if (field === "missioneComune") {
+        g.missioneComune = typeof forcedValue === "boolean" ? forcedValue : !g.missioneComune;
+        return copy;
+      }
+
       if (field === "vittoria") {
         g.vittoria = typeof forcedValue === "boolean" ? forcedValue : !g.vittoria;
         if (g.vittoria) g.pareggio = false;
       } else if (field === "pareggio") {
         g.pareggio = typeof forcedValue === "boolean" ? forcedValue : !g.pareggio;
         if (g.pareggio) g.vittoria = false;
+      } else if (field === "missionePersonaleX") {
+        if (!g.missionePersonale) {
+          g.missionePersonaleX = false;
+        } else {
+          g.missionePersonaleX = typeof forcedValue === "boolean" ? forcedValue : !g.missionePersonaleX;
+        }
       } else {
         g[field] = typeof forcedValue === "boolean" ? forcedValue : !g[field];
-      }
-
-      if (field === "missionePersonale") {
-        if (g.missionePersonale) g.missionePersonaleX = true;
-        else g.missionePersonaleX = false;
       }
 
       return copy;
@@ -92,13 +149,17 @@ export default function TurnoPage() {
   // calcolo punteggio per giornata (stessa logica del componente)
   function computeGiornataScore(g) {
     let s = 0;
-    if (g.missionePersonale) s += 0.5;
+    if (g.missionePersonale && g.missionePersonaleCompletata) s += 1;
     if (g.missionePersonaleX && g.golParata && g.votiBassi) s += 1;
-    if (g.missioneComune) s += 1;
+    if (g.missioneComune) s += 0.5;
     if (g.vittoria) s += 3;
     else if (g.pareggio) s += 1;
-    if (g.missioneLeggendaria) s += 1;
     return s;
+  }
+
+  function saveGiornataDraft(giornataIndex) {
+    persistDraft(selectedTurno, giornataIndex, teams);
+    setSaveMessage(`Bozza salvata per turno ${selectedTurno}, giornata ${giornataIndex + 1}.`);
   }
 
   async function onSave() {
@@ -132,6 +193,9 @@ export default function TurnoPage() {
         alert("Errore salvataggio: vedi console");
       } else {
         console.log("Salvataggio riuscito:", data);
+        const drafts = loadDrafts();
+        delete drafts[selectedTurno];
+        localStorage.setItem(draftStorageKey, JSON.stringify(drafts));
         alert("Salvataggio riuscito");
       }
     } finally {
@@ -148,12 +212,14 @@ export default function TurnoPage() {
             {Array.from({ length: 7 }, (_, i) => <option key={i} value={i + 1}>{i + 1}</option>)}
           </select>
         </label>
+        {saveMessage ? <span style={{ fontSize: 13, color: "#555" }}>{saveMessage}</span> : null}
       </div>
 
       <Turno
         teams={teams}
         selectedTurno={selectedTurno}
         onToggleField={onToggleField}
+        onSaveGiornata={saveGiornataDraft}
         onSave={onSave}
         loading={loading}
       />

@@ -1,5 +1,5 @@
 // src/components/Turno.jsx
-import React, { useMemo } from "react";
+import React from "react";
 
 /**
  * Componente puramente presentazionale e di gestione stato locale passato via props.
@@ -16,6 +16,7 @@ export default function Turno({
   teams = [],
   selectedTurno = 1,
   onToggleField = () => {},
+  onSaveGiornata = () => {},
   onSave = () => {},
   loading = false,
 }) {
@@ -23,96 +24,41 @@ export default function Turno({
 
   function computeGiornataScore(g) {
     let s = 0;
-    if (g.missionePersonale) s += 0.5;
+    if (g.missionePersonale && g.missionePersonaleCompletata) s += 1;
     if (g.missionePersonaleX && g.golParata && g.votiBassi) s += 1;
-    if (g.missioneComune) s += 1;
+    if (g.missioneComune) s += 0.5;
     if (g.vittoria) s += 3;
     else if (g.pareggio) s += 1;
-    if (g.missioneLeggendaria) s += 1;
     return s;
   }
 
-  const totalsByTeam = useMemo(() => {
-    return teams.map(t => {
-      const turno = t.perTurni?.[turnoIdx];
-      const totale = turno
-        ? turno.giornate.reduce((acc, g) => acc + computeGiornataScore(g), 0)
-        : 0;
-      return { id: t.id, nome: t.nome, totale, turno };
-    });
-  }, [teams, turnoIdx]);
-
-  function renderMissionePersonaleXCell(team, giornataIndex, g) {
-    const personalChecked = !!g.missionePersonale;
-    const xChecked = !!g.missionePersonaleX;
-
-    return (
-      <div style={{ display: "flex", justifyContent: "center" }}>
-        <input
-          type="checkbox"
-          checked={xChecked}
-          disabled={!personalChecked}
-          onChange={() => onToggleField(team.id, turnoIdx, giornataIndex, "missionePersonaleX")}
-          title={
-            personalChecked
-              ? "Missione Personale X"
-              : "Attiva prima Missione Personale"
-          }
-        />
-      </div>
-    );
-  }
-
-  function renderEsitoCells(team, giornataIndex, g) {
-    return (
-      <>
-        <td style={cellCenter}>
-          <input
-            type="checkbox"
-            checked={!!g.vittoria}
-            onChange={() => onToggleField(team.id, turnoIdx, giornataIndex, "vittoria")}
-          />
-        </td>
-        <td style={cellCenter}>
-          <input
-            type="checkbox"
-            checked={!!g.pareggio}
-            onChange={() => onToggleField(team.id, turnoIdx, giornataIndex, "pareggio")}
-          />
-        </td>
-      </>
-    );
-  }
-
   function renderGiornataBlock(giornataIndex) {
-    const isLast = giornataIndex === 2;
-
     return (
-      <div key={giornataIndex} style={{ marginBottom: 18 }}>
+      <div key={giornataIndex} style={{ marginBottom: 20 }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", margin: "10px 0 6px" }}>
+          <h3 style={{ margin: 0 }}>{giornataIndex + 1}a giornata</h3>
+          <button type="button" onClick={() => onSaveGiornata(giornataIndex)} style={{ padding: "6px 10px" }}>
+            Salva parziale giornata
+          </button>
+        </div>
         <table style={{ width: "100%", borderCollapse: "collapse", tableLayout: "fixed" }}>
           <thead>
             <tr>
-              <th style={{ ...cellHeader, width: "18%", textAlign: "left" }}>
-                {giornataIndex + 1}a Giornata
-              </th>
-              {isLast && (
-                <>
-                  <th style={cellHeader}>Vittoria Turno +3</th>
-                  <th style={cellHeader}>Pareggio Turno +1</th>
-                </>
-              )}
-              <th style={cellHeader}>Missione Personale</th>
-              <th style={cellHeader}>Missione Personale X +1</th>
-              <th style={cellHeader}>Gol/Parata</th>
-              <th style={cellHeader}>VotiBassi</th>
-              <th style={cellHeader}>Missione Comune +1</th>
-              {isLast && <th style={cellHeader}>Missione Leggendaria +1</th>}
-              <th style={cellHeader}>Punteggio Totale</th>
+              <th style={{ ...cellHeader, width: "14%", textAlign: "left" }}>Squadra</th>
+              <th style={{ ...cellHeader, width: "13%" }}>Missione Personale</th>
+              <th style={{ ...cellHeader, width: "9%" }}>Completata (si/no)</th>
+              <th style={{ ...cellHeader, width: "10%" }}>Miss. Comune</th>
+              <th style={{ ...cellHeader, width: "14%" }}>Vittoria/Pareggio Giornata</th>
+              <th style={{ ...cellHeader, width: "11%" }}>Missione Personale X</th>
+              <th style={{ ...cellHeader, width: "9%" }}>Gol / Parato</th>
+              <th style={{ ...cellHeader, width: "9%" }}>Voti Bassi</th>
+              <th style={{ ...cellHeader, width: "8%" }}>Punteggio</th>
+              <th style={{ ...cellHeader, width: "3%" }}>Salva</th>
             </tr>
           </thead>
 
           <tbody>
-            {totalsByTeam.map(team => {
+            {teams.map(team => {
               const g = team.turno?.giornate?.[giornataIndex];
               if (!g) return null;
 
@@ -120,28 +66,69 @@ export default function Turno({
                 <tr key={`${team.id}-g${giornataIndex}`}>
                   <td style={{ ...cellBase, fontWeight: 500 }}>{team.nome}</td>
 
-                  {isLast && renderEsitoCells(team, giornataIndex, g)}
-
                   <td style={cellCenter}>
                     <select
-                      value={g.missionePersonale ? "selected" : ""}
-                      onChange={e =>
-                        onToggleField(
-                          team.id,
-                          turnoIdx,
-                          giornataIndex,
-                          "missionePersonale",
-                          e.target.value === "selected"
-                        )
-                      }
+                      value={g.missionePersonale || ""}
+                      onChange={e => onToggleField(team.id, turnoIdx, giornataIndex, "missionePersonale", e.target.value)}
                       style={{ width: "96%", maxWidth: 180 }}
                     >
-                      <option value="">Seleziona</option>
-                      <option value="selected">Completata (+0.5)</option>
+                      <option value="">-- scegli missione --</option>
+                      <option value="Dominio Offensivo">Dominio Offensivo</option>
+                      <option value="Qualità di Squadra">Qualità di Squadra</option>
+                      <option value="Bonus Diffuso">Bonus Diffuso</option>
+                      <option value="One Shot">One Shot</option>
+                      <option value="Continuità Europea">Continuità Europea</option>
+                      <option value="Top Performer">Top Performer</option>
                     </select>
                   </td>
 
-                  <td style={cellCenter}>{renderMissionePersonaleXCell(team, giornataIndex, g)}</td>
+                  <td style={cellCenter}>
+                    <input
+                      type="checkbox"
+                      checked={!!g.missionePersonaleCompletata}
+                      onChange={() => onToggleField(team.id, turnoIdx, giornataIndex, "missionePersonaleCompletata")}
+                      disabled={!g.missionePersonale}
+                    />
+                  </td>
+
+                  <td style={cellCenter}>
+                    <input
+                      type="checkbox"
+                      checked={!!g.missioneComune}
+                      onChange={() => onToggleField(team.id, turnoIdx, giornataIndex, "missioneComune")}
+                    />
+                  </td>
+
+                  <td style={cellCenter}>
+                    <div style={{ display: "flex", justifyContent: "center", gap: 10 }}>
+                      <label style={inlineLabel}>
+                        <input
+                          type="checkbox"
+                          checked={!!g.vittoria}
+                          onChange={() => onToggleField(team.id, turnoIdx, giornataIndex, "vittoria")}
+                        />
+                        <span>V</span>
+                      </label>
+                      <label style={inlineLabel}>
+                        <input
+                          type="checkbox"
+                          checked={!!g.pareggio}
+                          onChange={() => onToggleField(team.id, turnoIdx, giornataIndex, "pareggio")}
+                        />
+                        <span>P</span>
+                      </label>
+                    </div>
+                  </td>
+
+                  <td style={cellCenter}>
+                    <input
+                      type="checkbox"
+                      checked={!!g.missionePersonaleX}
+                      disabled={!g.missionePersonale}
+                      onChange={() => onToggleField(team.id, turnoIdx, giornataIndex, "missionePersonaleX")}
+                      title={g.missionePersonale ? "Auto-attivata con Missione Personale" : "Seleziona prima una missione personale"}
+                    />
+                  </td>
 
                   <td style={cellCenter}>
                     <input
@@ -159,25 +146,13 @@ export default function Turno({
                     />
                   </td>
 
-                  <td style={cellCenter}>
-                    <input
-                      type="checkbox"
-                      checked={!!g.missioneComune}
-                      onChange={() => onToggleField(team.id, turnoIdx, giornataIndex, "missioneComune")}
-                    />
-                  </td>
-
-                  {isLast && (
-                    <td style={cellCenter}>
-                      <input
-                        type="checkbox"
-                        checked={!!g.missioneLeggendaria}
-                        onChange={() => onToggleField(team.id, turnoIdx, giornataIndex, "missioneLeggendaria")}
-                      />
-                    </td>
-                  )}
-
                   <td style={{ ...cellCenter, fontWeight: 600 }}>{computeGiornataScore(g)}</td>
+
+                  <td style={cellCenter}>
+                    <button type="button" onClick={() => onSaveGiornata(giornataIndex)} style={{ padding: "4px 8px" }}>
+                      Salva
+                    </button>
+                  </td>
                 </tr>
               );
             })}
@@ -201,25 +176,6 @@ export default function Turno({
       {renderGiornataBlock(0)}
       {renderGiornataBlock(1)}
       {renderGiornataBlock(2)}
-
-      <div style={{ marginTop: 8 }}>
-        <table style={{ width: "100%", borderCollapse: "collapse", tableLayout: "fixed" }}>
-          <thead>
-            <tr>
-              <th style={{ ...cellHeader, width: "70%", textAlign: "left" }}>Squadra</th>
-              <th style={cellHeader}>Totale nelle 3 giornate</th>
-            </tr>
-          </thead>
-          <tbody>
-            {totalsByTeam.map(team => (
-              <tr key={`${team.id}-totale`}>
-                <td style={{ ...cellBase, fontWeight: 500 }}>{team.nome}</td>
-                <td style={{ ...cellCenter, fontWeight: 700 }}>{team.totale}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
     </div>
   );
 }
@@ -242,4 +198,11 @@ const cellBase = {
 const cellCenter = {
   ...cellBase,
   textAlign: "center",
+};
+
+const inlineLabel = {
+  display: "inline-flex",
+  alignItems: "center",
+  gap: 4,
+  fontSize: 12,
 };
