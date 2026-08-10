@@ -71,7 +71,7 @@ export default function TurnoPage() {
   const cloneTeams = prev =>
     prev.map(t => ({ ...t, perTurni: t.perTurni.map(turno => ({ giornate: turno.giornate.map(g => ({ ...g })) })) }));
 
-  function onToggleField(teamId, turnoIndex, giornataIndex, field) {
+  function onToggleField(teamId, turnoIndex, giornataIndex, field, forcedValue) {
     setTeams(prev => {
       const copy = cloneTeams(prev);
       const team = copy.find(x => x.id === teamId);
@@ -79,13 +79,13 @@ export default function TurnoPage() {
       const g = team.perTurni[turnoIndex].giornate[giornataIndex];
 
       if (field === "vittoria") {
-        g.vittoria = !g.vittoria;
+        g.vittoria = typeof forcedValue === "boolean" ? forcedValue : !g.vittoria;
         if (g.vittoria) g.pareggio = false;
       } else if (field === "pareggio") {
-        g.pareggio = !g.pareggio;
+        g.pareggio = typeof forcedValue === "boolean" ? forcedValue : !g.pareggio;
         if (g.pareggio) g.vittoria = false;
       } else {
-        g[field] = !g[field];
+        g[field] = typeof forcedValue === "boolean" ? forcedValue : !g[field];
       }
 
       if (field === "missionePersonale") {
