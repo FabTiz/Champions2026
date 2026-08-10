@@ -36,10 +36,12 @@ export default function TurnoPage() {
   );
   const [loading, setLoading] = useState(false);
   const [remoteTurns, setRemoteTurns] = useState([]);
+  const [selectedTurnRows, setSelectedTurnRows] = useState([]);
   const [saveMessage, setSaveMessage] = useState("");
 
   const draftStorageKey = "champions-turno-drafts-v1";
   const savedTurnStorageKey = "champions-turno-saved-v1";
+  const turnDetailTable = "league_turn_details";
 
   function cloneTurnState(turnState) {
     return {
@@ -122,6 +124,52 @@ export default function TurnoPage() {
     return savedTurns[String(turnNumber)] || savedTurns[turnNumber] || null;
   }
 
+  async function fetchSavedTurnDetail(turnNumber) {
+    const { data, error } = await supabase
+      .from(turnDetailTable)
+      .select("turn_number, turn_state, saved_at")
+      .eq("turn_number", turnNumber)
+      .maybeSingle();
+
+    if (error) {
+      console.warn("Supabase turn detail warning:", error);
+      return null;
+    }
+
+    return data;
+  }
+
+  async function persistSavedTurnDetail(turnNumber, snapshotTeams) {
+    const turnState = extractTurnState(snapshotTeams, turnNumber);
+
+    const { error } = await supabase
+      .from(turnDetailTable)
+      .upsert(
+        {
+          turn_number: turnNumber,
+          turn_state: turnState,
+          saved_at: new Date().toISOString(),
+        },
+        { onConflict: "turn_number" }
+      );
+
+    if (error) {
+      console.error("Errore save turn detail Supabase:", error);
+      throw error;
+    }
+  }
+
+  async function deleteSavedTurnDetail(turnNumber) {
+    const { error } = await supabase
+      .from(turnDetailTable)
+      .delete()
+      .eq("turn_number", turnNumber);
+
+    if (error) {
+      console.warn("Errore delete turn detail Supabase:", error);
+    }
+  }
+
   async function fetchRemoteTurns() {
     const { data, error } = await supabase
       .from("league_turns")
@@ -137,41 +185,72 @@ export default function TurnoPage() {
     setRemoteTurns(data || []);
   }
 
+  async function fetchSelectedTurnRows(turnNumber) {
+    const { data, error } = await supabase
+      .from("league_turns")
+      .select("*")
+      .eq("turn_number", turnNumber)
+      .order("team_home_id", { ascending: true });
+
+    if (error) {
+      console.warn("Supabase selected turn warning:", error);
+      setSelectedTurnRows([]);
+      return;
+    }
+
+    setSelectedTurnRows(data || []);
+  }
+
   useEffect(() => {
     if (!supabase) return;
     let mounted = true;
     setLoading(true);
-    fetchRemoteTurns().finally(() => {
+    Promise.all([fetchRemoteTurns(), fetchSelectedTurnRows(selectedTurno)]).finally(() => {
       if (mounted) setLoading(false);
     });
     return () => {
       mounted = false;
     };
-  }, [supabase]);
+  }, [supabase, selectedTurno]);
 
   useEffect(() => {
-    const draft = readDraft(selectedTurno);
-    const savedTurn = readSavedTurn(selectedTurno);
+    let active = true;
 
-    setTeams(prev => {
+    async function loadSelectedTurnState() {
+      const draft = readDraft(selectedTurno);
       if (draft?.turnState) {
-        return mergeTurnState(prev, selectedTurno, draft.turnState);
+        if (!active) return;
+        setTeams(prev => mergeTurnState(prev, selectedTurno, draft.turnState));
+        setSaveMessage(`Bozza turno ${selectedTurno} caricata.`);
+        return;
       }
 
+      const remoteDetail = await fetchSavedTurnDetail(selectedTurno);
+      if (remoteDetail?.turn_state) {
+        if (!active) return;
+        setTeams(prev => mergeTurnState(prev, selectedTurno, remoteDetail.turn_state));
+        setSaveMessage(`Turno ${selectedTurno} caricato da Supabase.`);
+        return;
+      }
+
+      const savedTurn = readSavedTurn(selectedTurno);
       if (savedTurn?.turnState) {
-        return mergeTurnState(prev, selectedTurno, savedTurn.turnState);
+        if (!active) return;
+        setTeams(prev => mergeTurnState(prev, selectedTurno, savedTurn.turnState));
+        setSaveMessage(`Turno ${selectedTurno} caricato dai dati salvati.`);
+        return;
       }
 
-      return prev;
-    });
-
-    if (draft?.turnState) {
-      setSaveMessage(`Bozza turno ${selectedTurno} caricata.`);
-    } else if (savedTurn?.turnState) {
-      setSaveMessage(`Turno ${selectedTurno} caricato dai dati salvati.`);
-    } else {
-      setSaveMessage("");
+      if (active) {
+        setSaveMessage("");
+      }
     }
+
+    loadSelectedTurnState();
+
+    return () => {
+      active = false;
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedTurno]);
 
@@ -289,6 +368,7 @@ export default function TurnoPage() {
     const savedTurns = loadSavedTurns();
     delete savedTurns[selectedTurno];
     localStorage.setItem(savedTurnStorageKey, JSON.stringify(savedTurns));
+    deleteSavedTurnDetail(selectedTurno);
     setSaveMessage(`Turno ${selectedTurno} resettato.`);
   }
 
@@ -358,11 +438,13 @@ export default function TurnoPage() {
         alert(`Errore salvataggio: ${error.message}`);
       } else {
         console.log("Salvataggio riuscito:", data);
+        await persistSavedTurnDetail(selectedTurno, teams);
         persistSavedTurn(selectedTurno, teams);
         const drafts = loadDrafts();
         delete drafts[selectedTurno];
         localStorage.setItem(draftStorageKey, JSON.stringify(drafts));
         await fetchRemoteTurns();
+        await fetchSelectedTurnRows(selectedTurno);
         setSaveMessage(`Turno ${selectedTurno} salvato su Supabase.`);
         alert("Salvataggio riuscito");
       }
@@ -390,6 +472,7 @@ export default function TurnoPage() {
       <Turno
         teams={teams}
         selectedTurno={selectedTurno}
+        savedTurnRows={selectedTurnRows}
         onToggleField={onToggleField}
         onSaveGiornata={saveGiornataDraft}
         onResetGiornata={resetGiornata}

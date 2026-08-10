@@ -15,6 +15,7 @@ import React from "react";
 export default function Turno({
   teams = [],
   selectedTurno = 1,
+  savedTurnRows = [],
   onToggleField = () => {},
   onSaveGiornata = () => {},
   onResetGiornata = () => {},
@@ -290,6 +291,46 @@ export default function Turno({
     );
   }
 
+  function renderSavedTurnSummary() {
+    if (!savedTurnRows.length) return null;
+
+    return (
+      <div style={{ margin: "0 0 28px" }}>
+        <h3 style={{ margin: "12px 0 8px" }}>Dati recuperati da Supabase</h3>
+        <p style={{ margin: "0 0 10px", color: "#555" }}>
+          Il DB contiene i punteggi salvati del turno. Il dettaglio di menu e checkbox non e ricostruibile dai soli record aggregati attuali.
+        </p>
+        <table style={{ width: "100%", borderCollapse: "collapse", tableLayout: "fixed" }}>
+          <thead>
+            <tr>
+              <th style={{ ...cellHeader, width: "24%", textAlign: "left" }}>Squadra</th>
+              <th style={cellHeader}>Giornata 1</th>
+              <th style={cellHeader}>Giornata 2</th>
+              <th style={cellHeader}>Giornata 3</th>
+              <th style={cellHeader}>Totale turno</th>
+              <th style={cellHeader}>Esito</th>
+            </tr>
+          </thead>
+          <tbody>
+            {savedTurnRows.map(row => {
+              const teamName = teams.find(team => team.id === `team-${row.team_home_id}`)?.nome || `Squadra ${row.team_home_id}`;
+              return (
+                <tr key={row.id}>
+                  <td style={{ ...cellBase, fontWeight: 500 }}>{teamName}</td>
+                  <td style={cellCenter}>{row.matchday_1_points_home ?? 0}</td>
+                  <td style={cellCenter}>{row.matchday_2_points_home ?? 0}</td>
+                  <td style={cellCenter}>{row.matchday_3_points_home ?? 0}</td>
+                  <td style={{ ...cellCenter, fontWeight: 700 }}>{row.total_home ?? 0}</td>
+                  <td style={cellCenter}>{row.result || "-"}</td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+    );
+  }
+
   return (
     <div style={{ padding: 16, fontFamily: "Segoe UI, Arial, sans-serif" }}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
@@ -316,6 +357,8 @@ export default function Turno({
       {renderGiornataBlock(0)}
       {renderGiornataBlock(1)}
       {renderGiornataBlock(2)}
+
+      {renderSavedTurnSummary()}
 
       {renderClassificaBlock(0)}
       {renderClassificaBlock(1)}
