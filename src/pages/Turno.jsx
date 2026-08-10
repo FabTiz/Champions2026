@@ -396,3 +396,251 @@ export default function Turno() {
     </div>
   );
 }
+Aimport React, { useState, useEffect } from "react";
+
+/**
+ * Struttura dati per una riga squadra:
+ * {
+ *   id: string,
+ *   nome: string,
+ *   missionePersonale: boolean,
+ *   missionePersonaleX: boolean,
+ *   golParata: boolean,
+ *   votiBassi: boolean,
+ *   missioneComune: boolean,
+ *   vittoria: boolean, // +3
+ *   pareggio: boolean, // +1
+ *   missioneLeggendaria: boolean
+ * }
+ */
+
+const initialTeams = [
+  { id: "iron", nome: "Iron Team" },
+  { id: "panza", nome: "PanzaSoccer" },
+  { id: "arancia", nome: "Arancia Meccanica" },
+  { id: "chicago", nome: "FC Chicago Hasbulls" },
+  { id: "trapo", nome: "TrapoTeam" },
+  { id: "sam", nome: "SAM PDOOR" },
+  { id: "asd", nome: "ASD Tragedia Totale" },
+  { id: "alcamo", nome: "Alcamo United" },
+];
+
+export default function Turno() {
+  const [teams, setTeams] = useState(() =>
+    initialTeams.map(t => ({
+      ...t,
+      missionePersonale: false,
+      missionePersonaleX: false,
+      golParata: false,
+      votiBassi: false,
+      missioneComune: false,
+      vittoria: false,
+      pareggio: false,
+      missioneLeggendaria: false,
+    }))
+  );
+
+  // Handler generico per toggle checkbox
+  function toggleField(teamId, field) {
+    setTeams(prev =>
+      prev.map(t => {
+        if (t.id !== teamId) return t;
+        const updated = { ...t, [field]: !t[field] };
+
+        // Regola speciale: se toggli missionePersonale ON -> imposta missionePersonaleX ON
+        if (field === "missionePersonale" && updated.missionePersonale) {
+          updated.missionePersonaleX = true;
+        }
+
+        // Se deselezioni missionePersonale, togli anche missionePersonaleX
+        if (field === "missionePersonale" && !updated.missionePersonale) {
+          updated.missionePersonaleX = false;
+        }
+
+        return updated;
+      })
+    );
+  }
+
+  // Se vuoi permettere che missionePersonaleX venga cliccata manualmente, puoi usare questo:
+  function toggleMissionePersonaleX(teamId) {
+    setTeams(prev =>
+      prev.map(t => {
+        if (t.id !== teamId) return t;
+        // Se vuoi che missionePersonaleX sia sempre sincronizzata con missionePersonale,
+        // puoi impedire il toggle manuale. Qui lo permettiamo ma la logica di conteggio resta.
+        return { ...t, missionePersonaleX: !t.missionePersonaleX };
+      })
+    );
+  }
+
+  // Calcolo punteggio per una squadra
+  function computeScore(t) {
+    let score = 0;
+
+    // Missione Personale +0.5 se spuntata
+    if (t.missionePersonale) score += 0.5;
+
+    // Missione Personale X: checkbox visibile/spuntata ma conta 1 solo se anche golParata e votiBassi sono true
+    if (t.missionePersonaleX && t.golParata && t.votiBassi) score += 1;
+
+    // Missione Comune +1
+    if (t.missioneComune) score += 1;
+
+    // Vittoria/Pareggio
+    if (t.vittoria) score += 3;
+    else if (t.pareggio) score += 1;
+
+    // Missione Leggendaria +1
+    if (t.missioneLeggendaria) score += 1;
+
+    return score;
+  }
+
+  // Salvataggio esempio (qui solo console.log; integra con Supabase dove serve)
+  function saveTotals() {
+    const payload = teams.map(t => ({
+      id: t.id,
+      totale: computeScore(t),
+      missionePersonale: t.missionePersonale,
+      missionePersonaleX: t.missionePersonaleX,
+      golParata: t.golParata,
+      votiBassi: t.votiBassi,
+      missioneComune: t.missioneComune,
+      vittoria: t.vittoria,
+      pareggio: t.pareggio,
+      missioneLeggendaria: t.missioneLeggendaria,
+    }));
+    console.log("Salva totali:", payload);
+    // TODO: chiamata a Supabase per salvare payload
+  }
+
+  return (
+    <div style={{ padding: 16 }}>
+      <h3>Turno 1</h3>
+
+      <table style={{ width: "100%", borderCollapse: "collapse" }}>
+        <thead>
+          <tr>
+            <th>Squadra</th>
+            <th>Missione Personale +0.5</th>
+            <th>Missione Personale X (condiz.)</th>
+            <th>Gol/Parata</th>
+            <th>Voto 5 (VotiBassi)</th>
+            <th>Missione Comune +1</th>
+            <th>Vittoria +3 / Pareggio +1</th>
+            <th>Missione Leggendaria +1</th>
+            <th>Punteggio Totale</th>
+          </tr>
+        </thead>
+        <tbody>
+          {teams.map(t => (
+            <tr key={t.id} style={{ borderTop: "1px solid #ddd" }}>
+              <td>{t.nome}</td>
+
+              {/* Missione Personale */}
+              <td style={{ textAlign: "center" }}>
+                <input
+                  type="checkbox"
+                  checked={t.missionePersonale}
+                  onChange={() => toggleField(t.id, "missionePersonale")}
+                />
+              </td>
+
+              {/* Missione Personale X (visivamente spuntata automaticamente) */}
+              <td style={{ textAlign: "center" }}>
+                <input
+                  type="checkbox"
+                  checked={t.missionePersonaleX}
+                  onChange={() => toggleMissionePersonaleX(t.id)}
+                />
+                <div style={{ fontSize: 11, color: "#666" }}>
+                  Conta 1 solo se Gol/Parata + Voto 5 selezionati
+                </div>
+              </td>
+
+              {/* Gol/Parata */}
+              <td style={{ textAlign: "center" }}>
+                <input
+                  type="checkbox"
+                  checked={t.golParata}
+                  onChange={() => toggleField(t.id, "golParata")}
+                />
+              </td>
+
+              {/* VotiBassi (Voto 5) */}
+              <td style={{ textAlign: "center" }}>
+                <input
+                  type="checkbox"
+                  checked={t.votiBassi}
+                  onChange={() => toggleField(t.id, "votiBassi")}
+                />
+              </td>
+
+              {/* Missione Comune */}
+              <td style={{ textAlign: "center" }}>
+                <input
+                  type="checkbox"
+                  checked={t.missioneComune}
+                  onChange={() => toggleField(t.id, "missioneComune")}
+                />
+              </td>
+
+              {/* Vittoria / Pareggio */}
+              <td style={{ textAlign: "center" }}>
+                <label style={{ marginRight: 8 }}>
+                  <input
+                    type="radio"
+                    name={`esito-${t.id}`}
+                    checked={t.vittoria}
+                    onChange={() =>
+                      setTeams(prev =>
+                        prev.map(x =>
+                          x.id === t.id ? { ...x, vittoria: true, pareggio: false } : x
+                        )
+                      )
+                    }
+                  />
+                  V
+                </label>
+                <label>
+                  <input
+                    type="radio"
+                    name={`esito-${t.id}`}
+                    checked={t.pareggio}
+                    onChange={() =>
+                      setTeams(prev =>
+                        prev.map(x =>
+                          x.id === t.id ? { ...x, vittoria: false, pareggio: true } : x
+                        )
+                      )
+                    }
+                  />
+                  P
+                </label>
+              </td>
+
+              {/* Missione Leggendaria */}
+              <td style={{ textAlign: "center" }}>
+                <input
+                  type="checkbox"
+                  checked={t.missioneLeggendaria}
+                  onChange={() => toggleField(t.id, "missioneLeggendaria")}
+                />
+              </td>
+
+              {/* Punteggio Totale */}
+              <td style={{ textAlign: "center", fontWeight: "bold" }}>
+                {computeScore(t)}
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+
+      <div style={{ marginTop: 12 }}>
+        <button onClick={saveTotals}>Salva Totale</button>
+      </div>
+    </div>
+  );
+}
