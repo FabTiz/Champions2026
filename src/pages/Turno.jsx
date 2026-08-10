@@ -39,6 +39,39 @@ export default function TurnoPage() {
   const [saveMessage, setSaveMessage] = useState("");
 
   const draftStorageKey = "champions-turno-drafts-v1";
+  const savedTurnStorageKey = "champions-turno-saved-v1";
+
+  function cloneTurnState(turnState) {
+    return {
+      giornate: turnState.giornate.map(giornata => ({ ...giornata })),
+    };
+  }
+
+  function extractTurnState(snapshotTeams, turnNumber) {
+    const turnIdx = turnNumber - 1;
+    return snapshotTeams.map(team => ({
+      id: team.id,
+      nome: team.nome,
+      turno: cloneTurnState(team.perTurni[turnIdx]),
+    }));
+  }
+
+  function mergeTurnState(baseTeams, turnNumber, storedTurnState) {
+    const turnIdx = turnNumber - 1;
+    return baseTeams.map(team => {
+      const storedTeam = storedTurnState.find(item => item.id === team.id);
+      if (!storedTeam) return team;
+
+      const nextPerTurni = team.perTurni.map((turno, index) =>
+        index === turnIdx ? cloneTurnState(storedTeam.turno) : turno
+      );
+
+      return {
+        ...team,
+        perTurni: nextPerTurni,
+      };
+    });
+  }
 
   function loadDrafts() {
     try {
@@ -55,7 +88,7 @@ export default function TurnoPage() {
       turnNumber,
       giornataIndex,
       savedAt: new Date().toISOString(),
-      teams: snapshotTeams,
+      turnState: extractTurnState(snapshotTeams, turnNumber),
     };
     localStorage.setItem(draftStorageKey, JSON.stringify(drafts));
   }
@@ -63,6 +96,30 @@ export default function TurnoPage() {
   function readDraft(turnNumber) {
     const drafts = loadDrafts();
     return drafts[String(turnNumber)] || drafts[turnNumber] || null;
+  }
+
+  function loadSavedTurns() {
+    try {
+      const raw = localStorage.getItem(savedTurnStorageKey);
+      return raw ? JSON.parse(raw) : {};
+    } catch {
+      return {};
+    }
+  }
+
+  function persistSavedTurn(turnNumber, snapshotTeams) {
+    const savedTurns = loadSavedTurns();
+    savedTurns[turnNumber] = {
+      turnNumber,
+      savedAt: new Date().toISOString(),
+      turnState: extractTurnState(snapshotTeams, turnNumber),
+    };
+    localStorage.setItem(savedTurnStorageKey, JSON.stringify(savedTurns));
+  }
+
+  function readSavedTurn(turnNumber) {
+    const savedTurns = loadSavedTurns();
+    return savedTurns[String(turnNumber)] || savedTurns[turnNumber] || null;
   }
 
   async function fetchRemoteTurns() {
@@ -94,9 +151,24 @@ export default function TurnoPage() {
 
   useEffect(() => {
     const draft = readDraft(selectedTurno);
-    if (draft?.teams) {
-      setTeams(draft.teams);
+    const savedTurn = readSavedTurn(selectedTurno);
+
+    setTeams(prev => {
+      if (draft?.turnState) {
+        return mergeTurnState(prev, selectedTurno, draft.turnState);
+      }
+
+      if (savedTurn?.turnState) {
+        return mergeTurnState(prev, selectedTurno, savedTurn.turnState);
+      }
+
+      return prev;
+    });
+
+    if (draft?.turnState) {
       setSaveMessage(`Bozza turno ${selectedTurno} caricata.`);
+    } else if (savedTurn?.turnState) {
+      setSaveMessage(`Turno ${selectedTurno} caricato dai dati salvati.`);
     } else {
       setSaveMessage("");
     }
@@ -214,6 +286,9 @@ export default function TurnoPage() {
     const drafts = loadDrafts();
     delete drafts[selectedTurno];
     localStorage.setItem(draftStorageKey, JSON.stringify(drafts));
+    const savedTurns = loadSavedTurns();
+    delete savedTurns[selectedTurno];
+    localStorage.setItem(savedTurnStorageKey, JSON.stringify(savedTurns));
     setSaveMessage(`Turno ${selectedTurno} resettato.`);
   }
 
@@ -283,6 +358,7 @@ export default function TurnoPage() {
         alert(`Errore salvataggio: ${error.message}`);
       } else {
         console.log("Salvataggio riuscito:", data);
+        persistSavedTurn(selectedTurno, teams);
         const drafts = loadDrafts();
         delete drafts[selectedTurno];
         localStorage.setItem(draftStorageKey, JSON.stringify(drafts));
