@@ -65,24 +65,28 @@ export default function TurnoPage() {
     return drafts[String(turnNumber)] || drafts[turnNumber] || null;
   }
 
+  async function fetchRemoteTurns() {
+    const { data, error } = await supabase
+      .from("league_turns")
+      .select("*")
+      .order("id", { ascending: false })
+      .limit(5);
+
+    if (error) {
+      console.warn("Supabase read warning:", error);
+      return;
+    }
+
+    setRemoteTurns(data || []);
+  }
+
   useEffect(() => {
     if (!supabase) return;
     let mounted = true;
     setLoading(true);
-    supabase
-      .from("league_turns")
-      .select("*")
-      .order("id", { ascending: false })
-      .limit(5)
-      .then(({ data, error }) => {
-        if (!mounted) return;
-        setLoading(false);
-        if (error) {
-          console.warn("Supabase read warning:", error);
-          return;
-        }
-        setRemoteTurns(data || []);
-      });
+    fetchRemoteTurns().finally(() => {
+      if (mounted) setLoading(false);
+    });
     return () => {
       mounted = false;
     };
@@ -223,30 +227,67 @@ export default function TurnoPage() {
     setLoading(true);
     try {
       const turnoIdx = selectedTurno - 1;
-      // Mappa payload: qui esempio che salva un record per ogni squadra come home (adatta ai tuoi id reali)
+
       const payload = teams.map((t, idx) => {
         const turno = t.perTurni[turnoIdx];
+        const matchday1 = computeGiornataScore(turno.giornate[0]);
+        const matchday2 = computeGiornataScore(turno.giornate[1]);
+        const matchday3 = computeGiornataScore(turno.giornate[2]);
+        const totalHome = matchday1 + matchday2 + matchday3;
+
+        let result = "draw";
+        let championsHome = 1;
+        let championsAway = 1;
+
+        if (totalHome >= 6) {
+          result = "home_win";
+          championsHome = 3;
+          championsAway = 0;
+        }
+
         return {
           turn_number: selectedTurno,
-          team_home_id: idx + 1, // sostituisci con id reali
-          team_away_id: null,
-          matchday_1_points_home: computeGiornataScore(turno.giornate[0]),
-          matchday_2_points_home: computeGiornataScore(turno.giornate[1]),
-          matchday_3_points_home: computeGiornataScore(turno.giornate[2]),
-          total_home: turno.giornate.reduce((acc, g) => acc + computeGiornataScore(g), 0),
+          team_home_id: idx + 1,
+          team_away_id: idx + 1,
+          matchday_1_points_home: matchday1,
+          matchday_1_points_away: 0,
+          matchday_2_points_home: matchday2,
+          matchday_2_points_away: 0,
+          matchday_3_points_home: matchday3,
+          matchday_3_points_away: 0,
+          total_home: totalHome,
+          total_away: 0,
+          result,
+          champions_points_home: championsHome,
+          champions_points_away: championsAway,
         };
       });
 
-      const { data, error } = await supabase.from("league_turns").insert(payload);
+      const teamIds = teams.map((_, idx) => idx + 1);
+      const { error: deleteError } = await supabase
+        .from("league_turns")
+        .delete()
+        .eq("turn_number", selectedTurno)
+        .in("team_home_id", teamIds);
+
+      if (deleteError) {
+        console.error("Errore delete Supabase:", deleteError);
+        alert(`Errore cancellazione dati turno: ${deleteError.message}`);
+        return;
+      }
+
+      const { data, error } = await supabase.from("league_turns").insert(payload).select();
 
       if (error) {
         console.error("Errore insert Supabase:", error);
-        alert("Errore salvataggio: vedi console");
+        alert(`Errore salvataggio: ${error.message}`);
       } else {
         console.log("Salvataggio riuscito:", data);
         const drafts = loadDrafts();
         delete drafts[selectedTurno];
         localStorage.setItem(draftStorageKey, JSON.stringify(drafts));
+        await fetchRemoteTurns();
+        setSaveMessage(`Turno ${selectedTurno} salvato su Supabase.`);
         alert("Salvataggio riuscito");
       }
     } finally {
