@@ -1,7 +1,7 @@
 // src/pages/Turno.jsx
 import React, { useEffect, useState } from "react";
 import Turno from "../components/Turno";
-import { createBrowserSupabase } from "../utils/supabase/client"; // adatta il path se diverso
+import { supabase } from "../supabaseClient";
 
 const TEAM_NAMES = [
   "Iron Team",
@@ -29,14 +29,6 @@ const makePerTurni = () =>
   Array.from({ length: 7 }, () => ({ giornate: [makeEmptyGiornata(), makeEmptyGiornata(), makeEmptyGiornata()] }));
 
 export default function TurnoPage() {
-  const supabase = (() => {
-    try {
-      return createBrowserSupabase();
-    } catch {
-      return null;
-    }
-  })();
-
   const [selectedTurno, setSelectedTurno] = useState(1);
   const [teams, setTeams] = useState(() =>
     TEAM_NAMES.map((nome, idx) => ({ id: `team-${idx + 1}`, nome, perTurni: makePerTurni() }))
