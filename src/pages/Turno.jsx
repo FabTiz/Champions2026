@@ -183,6 +183,35 @@ export default function TurnoPage() {
     setSaveMessage(`Giornata ${giornataIndex + 1} resettata.`);
   }
 
+  function resetTotaleTurno() {
+    const ok = window.confirm("Sei sicuro?\n\nVuoi resettare tutto il turno? (si/no)");
+    if (!ok) return;
+
+    setTeams(prev => {
+      const copy = cloneTeams(prev);
+      copy.forEach(team => {
+        const turno = team.perTurni[selectedTurno - 1];
+        if (!turno) return;
+        turno.giornate = turno.giornate.map(() => ({
+          missionePersonale: "",
+          missionePersonaleCompletata: false,
+          missionePersonaleX: false,
+          golParata: false,
+          votiBassi: false,
+          missioneComune: false,
+          vittoria: false,
+          pareggio: false,
+        }));
+      });
+      return copy;
+    });
+
+    const drafts = loadDrafts();
+    delete drafts[selectedTurno];
+    localStorage.setItem(draftStorageKey, JSON.stringify(drafts));
+    setSaveMessage(`Turno ${selectedTurno} resettato.`);
+  }
+
   async function onSave() {
     if (!supabase) {
       alert("Supabase client non disponibile. Salvataggio locale solo.");
@@ -242,6 +271,7 @@ export default function TurnoPage() {
         onToggleField={onToggleField}
         onSaveGiornata={saveGiornataDraft}
         onResetGiornata={resetGiornata}
+        onResetTurno={resetTotaleTurno}
         onSave={onSave}
         loading={loading}
       />

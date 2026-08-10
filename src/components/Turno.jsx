@@ -18,6 +18,7 @@ export default function Turno({
   onToggleField = () => {},
   onSaveGiornata = () => {},
   onResetGiornata = () => {},
+  onResetTurno = () => {},
   onSave = () => {},
   loading = false,
 }) {
@@ -46,11 +47,11 @@ export default function Turno({
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", margin: "10px 0 6px" }}>
           <h3 style={{ margin: 0 }}>{giornataNumero}a giornata</h3>
           <div style={{ display: "flex", gap: 8 }}>
-            <button type="button" onClick={() => onSaveGiornata(giornataIndex)} style={{ padding: "6px 10px" }}>
-              Salva parziale giornata
-            </button>
             <button type="button" onClick={() => onResetGiornata(giornataIndex)} style={{ padding: "6px 10px" }}>
               Reset giornata
+            </button>
+            <button type="button" onClick={() => onSaveGiornata(giornataIndex)} style={{ padding: "6px 10px" }}>
+              Salva giornata
             </button>
           </div>
         </div>
@@ -194,7 +195,14 @@ export default function Turno({
         </div>
         <div>
           <button onClick={onSave} disabled={loading} style={{ padding: "6px 12px" }}>
-            {loading ? "Salvataggio..." : "Salva Totale Turno"}
+            {loading ? "Salvataggio..." : "Salva turno completo"}
+          </button>
+          <button
+            type="button"
+            onClick={onResetTurno}
+            style={{ padding: "6px 12px", marginLeft: 8 }}
+          >
+            Reset turno completo
           </button>
         </div>
       </div>
